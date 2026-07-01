@@ -9,6 +9,8 @@ import 'package:location/location.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:woofcare/config/colors.dart';
 import 'package:woofcare/config/constants.dart';
+import 'package:woofcare/config/map_style.dart';
+import 'package:woofcare/ui/widgets/app_chrome.dart';
 
 import '/ui/pages/export.dart';
 
@@ -38,11 +40,30 @@ class _MapPageState extends State<MapPage> {
   BitmapDescriptor adoptMarker = BitmapDescriptor.defaultMarker;
   BitmapDescriptor adoptSelectMarker = BitmapDescriptor.defaultMarker;
 
+  StreamSubscription<LocationData>? _locationSubscription;
+  String selectedMarkerType = 'all';
+
   @override
   void initState() {
     super.initState();
 
-    _updateMarkerIcons();
+    _initializeMap();
+  }
+
+  @override
+  void dispose() {
+    _locationSubscription?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _initializeMap() async {
+    await _updateMarkerIcons();
+    if (!mounted) return;
+
+    await _fetchLocation(context);
+    if (!mounted) return;
+
+    await _fetchMarkers();
   }
 
   Future<void> _showMarkerBottomSheet(int index) async {
@@ -55,7 +76,11 @@ class _MapPageState extends State<MapPage> {
       builder: (context) {
         return PopScope(
           onPopInvokedWithResult: (bool pop, _) {
-            markers[index]["selected"] = false;
+            if (mounted) {
+              setState(() {
+                markers[index]["selected"] = false;
+              });
+            }
           },
           child: DraggableScrollableSheet(
             initialChildSize: 0.28,
@@ -179,136 +204,63 @@ class _MapPageState extends State<MapPage> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Expanded(
-                              child: ElevatedButton.icon(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFFA66E38),
-                                  foregroundColor: const Color(0xFFCAB096),
-                                  textStyle: const TextStyle(fontSize: 10),
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 12,
-                                    horizontal: 4,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                ),
-                                onPressed: () async {
-                                  Navigator.of(context).pop();
+                            _buildMapAction(
+                              icon: Icons.directions,
+                              label: 'Directions',
+                              onTap: () async {
+                                Navigator.of(context).pop();
+                                await _openDirections(markerData);
+                              },
+                            ),
+                            const SizedBox(width: 8),
+                            _buildMapAction(
+                              icon: Icons.call,
+                              label: 'Call',
+                              onTap: () async {
+                                final phone = markerData['phone'];
 
-                                  final maps = Uri.parse(
-                                    "https://www.google.com/maps?q=${markerData['latitude']},${markerData['longitude']}",
+                                if (phone != null &&
+                                    phone.toString().isNotEmpty) {
+                                  final uri = Uri(
+                                    scheme: 'tel',
+                                    path: phone.toString(),
                                   );
 
-                                  if (await canLaunchUrl(maps)) {
+                                  if (await canLaunchUrl(uri)) {
+                                    await launchUrl(uri);
+                                  }
+                                }
+                              },
+                            ),
+                            const SizedBox(width: 8),
+                            _buildMapAction(
+                              icon: Icons.public,
+                              label: 'Website',
+                              onTap: () async {
+                                final website = markerData['website'];
+                                if (website != null &&
+                                    website.toString().isNotEmpty) {
+                                  var uri = Uri.parse(website.toString());
+
+                                  if (!uri.hasScheme) {
+                                    uri = Uri.parse(
+                                      'https://${website.toString()}',
+                                    );
+                                  }
+                                  if (await canLaunchUrl(uri)) {
                                     await launchUrl(
-                                      maps,
+                                      uri,
                                       mode: LaunchMode.externalApplication,
                                     );
                                   }
-                                },
-                                icon: const Icon(Icons.directions),
-                                label: const Text('Directions'),
-                              ),
+                                }
+                              },
                             ),
                             const SizedBox(width: 8),
-                            Expanded(
-                              child: ElevatedButton.icon(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFFA66E38),
-                                  foregroundColor: const Color(0xFFCAB096),
-                                  textStyle: const TextStyle(fontSize: 12),
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 12,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                ),
-                                onPressed: () async {
-                                  final phone = markerData['phone'];
-
-                                  if (phone != null &&
-                                      phone.toString().isNotEmpty) {
-                                    final uri = Uri(
-                                      scheme: 'tel',
-                                      path: phone.toString(),
-                                    );
-
-                                    try {
-                                      if (await canLaunchUrl(uri)) {
-                                        await launchUrl(uri);
-                                      }
-                                    } catch (e) {
-                                      // ignore for now
-                                    }
-                                  }
-                                },
-                                icon: const Icon(Icons.call),
-                                label: const Text('Call'),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: ElevatedButton.icon(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFFA66E38),
-                                  foregroundColor: const Color(0xFFCAB096),
-                                  textStyle: const TextStyle(fontSize: 12),
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 12,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                ),
-                                onPressed: () async {
-                                  final website = markerData['website'];
-                                  if (website != null &&
-                                      website.toString().isNotEmpty) {
-                                    var uri = Uri.parse(website.toString());
-
-                                    if (!uri.hasScheme) {
-                                      uri = Uri.parse(
-                                        'https://${website.toString()}',
-                                      );
-                                    }
-                                    try {
-                                      if (await canLaunchUrl(uri)) {
-                                        await launchUrl(
-                                          uri,
-                                          mode: LaunchMode.externalApplication,
-                                        );
-                                      }
-                                    } catch (e) {
-                                      // ignore
-                                    }
-                                  }
-                                },
-                                icon: const Icon(Icons.public),
-                                label: const Text('Website'),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: ElevatedButton.icon(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFFA66E38),
-                                  foregroundColor: const Color(0xFFCAB096),
-                                  textStyle: const TextStyle(fontSize: 12),
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 12,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                ),
-                                onPressed: () {
-                                  // Share action
-                                },
-                                icon: const Icon(Icons.share),
-                                label: const Text('Share'),
-                              ),
+                            _buildMapAction(
+                              icon: Icons.share,
+                              label: 'Share',
+                              onTap: () {},
                             ),
                           ],
                         ),
@@ -348,72 +300,126 @@ class _MapPageState extends State<MapPage> {
 
   @override
   Widget build(BuildContext context) {
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      _fetchLocation(context);
-      _fetchMarkers();
-    });
-
-    return SafeArea(
-      child: Scaffold(
-        body: SafeArea(
-          child:
-              currentPosition == null
-                  ? const Center(child: CircularProgressIndicator())
-                  : GoogleMap(
-                    myLocationButtonEnabled: true,
-                    mapType: MapType.hybrid,
-                    initialCameraPosition: CameraPosition(
-                      target: currentPosition!,
-                      zoom: 13,
-                    ),
-                    markers: {
-                      Marker(
-                        markerId: MarkerId("currentPos"),
-                        icon: currentMarker,
-                        position: currentPosition!,
-                      ),
-                      for (var i = 0; i < markers.length; i++)
-                        Marker(
-                          markerId: MarkerId(markers[i]["id"]),
-                          icon:
-                              markers[i]["selected"]
-                                  ? markers[i]["selectIcon"]
-                                  : markers[i]["icon"],
-                          position: LatLng(
-                            markers[i]["latitude"],
-                            markers[i]["longitude"],
-                          ),
-                          onTap: () {
-                            // Show a bottom sheet when this marker is tapped and update selection
-                            _handleMarkerTap(i);
-                          },
+    return Scaffold(
+      body: SafeArea(
+        bottom: false,
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child:
+                  currentPosition == null
+                      ? const Center(
+                        child: CircularProgressIndicator(
+                          color: WoofCareColors.buttonColor,
                         ),
-                    },
-                  ),
-        ),
-
-        // Floating action button to report a dog
-        floatingActionButtonLocation: FloatingActionButtonLocation.startTop,
-        floatingActionButton: Padding(
-          padding: const EdgeInsets.only(top: 12),
-          child: FloatingActionButton.large(
-            onPressed: () {
-              _reportDogButtonPressed();
-            },
-            shape: RoundedRectangleBorder(
-              side: BorderSide(
-                color: WoofCareColors.borderOutline.withValues(alpha: 0.5),
+                      )
+                      : GoogleMap(
+                        style: WoofCareMapStyle.light,
+                        myLocationButtonEnabled: false,
+                        zoomControlsEnabled: false,
+                        mapToolbarEnabled: false,
+                        compassEnabled: false,
+                        padding: const EdgeInsets.only(top: 132, bottom: 108),
+                        mapType: MapType.normal,
+                        initialCameraPosition: CameraPosition(
+                          target: currentPosition!,
+                          zoom: 13,
+                        ),
+                        markers: {
+                          Marker(
+                            markerId: MarkerId("currentPos"),
+                            icon: currentMarker,
+                            position: currentPosition!,
+                          ),
+                          for (final i in _visibleMarkerIndexes())
+                            Marker(
+                              markerId: MarkerId(markers[i]["id"]),
+                              icon:
+                                  markers[i]["selected"]
+                                      ? markers[i]["selectIcon"]
+                                      : markers[i]["icon"],
+                              position: LatLng(
+                                markers[i]["latitude"],
+                                markers[i]["longitude"],
+                              ),
+                              onTap: () {
+                                _handleMarkerTap(i);
+                              },
+                            ),
+                        },
+                      ),
+            ),
+            Positioned(
+              top: 14,
+              left: 14,
+              right: 14,
+              child: _MapToolbar(
+                onReportTap: _reportDogButtonPressed,
+                onProfileTap: () => Navigator.pushNamed(context, "/profile"),
               ),
-              borderRadius: BorderRadiusGeometry.circular(90),
             ),
-            backgroundColor: WoofCareColors.secondaryBackground.withValues(
-              alpha: 0.9,
+            Positioned(
+              top: 110,
+              left: 0,
+              right: 0,
+              child: _MapFilterBar(
+                selectedType: selectedMarkerType,
+                onSelected:
+                    (type) => setState(() {
+                      selectedMarkerType = type;
+                    }),
+              ),
             ),
-            child: FaIcon(FontAwesomeIcons.bullhorn),
-          ),
+          ],
         ),
       ),
     );
+  }
+
+  Iterable<int> _visibleMarkerIndexes() sync* {
+    for (var i = 0; i < markers.length; i++) {
+      if (_markerMatchesFilter(markers[i])) {
+        yield i;
+      }
+    }
+  }
+
+  bool _markerMatchesFilter(Map<String, dynamic> marker) {
+    if (selectedMarkerType == 'all') return true;
+    return marker['type'] == selectedMarkerType;
+  }
+
+  Widget _buildMapAction({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return Expanded(
+      child: ElevatedButton.icon(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: WoofCareColors.buttonColor,
+          foregroundColor: WoofCareColors.offWhite,
+          textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+        onPressed: onTap,
+        icon: Icon(icon, size: 18),
+        label: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+      ),
+    );
+  }
+
+  Future<void> _openDirections(Map<String, dynamic> markerData) async {
+    final maps = Uri.parse(
+      "https://www.google.com/maps?q=${markerData['latitude']},${markerData['longitude']}",
+    );
+
+    if (await canLaunchUrl(maps)) {
+      await launchUrl(maps, mode: LaunchMode.externalApplication);
+    }
   }
 
   Future<void> fetchLocationUpdates(BuildContext context) async {
@@ -421,10 +427,11 @@ class _MapPageState extends State<MapPage> {
     PermissionStatus permissionGranted;
 
     serviceEnabled = await locationController.serviceEnabled();
-    if (serviceEnabled) {
+    if (!serviceEnabled) {
       serviceEnabled = await locationController.requestService();
-    } else {
-      return;
+      if (!serviceEnabled) {
+        return;
+      }
     }
 
     permissionGranted = await locationController.hasPermission();
@@ -436,7 +443,10 @@ class _MapPageState extends State<MapPage> {
       }
     }
 
-    locationController.onLocationChanged.listen((currentLocation) {
+    await _locationSubscription?.cancel();
+    _locationSubscription = locationController.onLocationChanged.listen((
+      currentLocation,
+    ) {
       if (currentLocation.latitude != null &&
           currentLocation.longitude != null &&
           context.mounted) {
@@ -522,7 +532,7 @@ class _MapPageState extends State<MapPage> {
     );
   }
 
-  void _updateMarkerIcons() async {
+  Future<void> _updateMarkerIcons() async {
     currentMarker = await BitmapDescriptor.asset(
       const ImageConfiguration(),
       'assets/images/map/current.png',
@@ -574,7 +584,9 @@ class _MapPageState extends State<MapPage> {
     );
   }
 
-  void _fetchMarkers() async {
+  Future<void> _fetchMarkers() async {
+    final List<Map<String, dynamic>> loadedMarkers = [];
+
     for (QueryDocumentSnapshot doc
         in (await FIRESTORE.collection("locations").get()).docs) {
       final data = doc.data() as Map<String, dynamic>?;
@@ -584,12 +596,13 @@ class _MapPageState extends State<MapPage> {
           data['longitude'] != null) {
         Map<String, dynamic> marker = {
           'id': doc.id,
-          'latitude': data['latitude'],
-          'longitude': data['longitude'],
+          'latitude': (data['latitude'] as num).toDouble(),
+          'longitude': (data['longitude'] as num).toDouble(),
           'name': data['name'] ?? 'Unknown',
           'description': data['description'] ?? 'NA',
           'phone': data['phone'],
           'website': data['website'],
+          'type': data['type'] ?? 'dog',
           'selected': false,
         };
 
@@ -618,7 +631,7 @@ class _MapPageState extends State<MapPage> {
             marker['icon'] = dogMarker;
         }
 
-        markers.add(marker);
+        loadedMarkers.add(marker);
       }
     }
 
@@ -632,26 +645,36 @@ class _MapPageState extends State<MapPage> {
           data['longitude'] != null) {
         Map<String, dynamic> marker = {
           'id': doc.id,
-          'latitude': data['latitude'],
-          'longitude': data['longitude'],
+          'latitude': (data['latitude'] as num).toDouble(),
+          'longitude': (data['longitude'] as num).toDouble(),
           'name': data['name'] ?? 'Unknown',
           'description': data['description'] ?? 'NA',
           'phone': data['phone'],
           'website': data['website'] ?? "",
           'icon': dogMarker,
           'selectIcon': dogSelectMarker,
+          'type': 'report',
           'urgency': data['urgency'] ?? "low",
           'userReported': data['userID'],
           'selected': false,
         };
 
-        markers.add(marker);
+        loadedMarkers.add(marker);
       }
     }
+
+    if (!mounted) return;
+
+    setState(() {
+      markers = loadedMarkers;
+    });
   }
 
   Future<void> _handleMarkerTap(int index) async {
     setState(() {
+      for (final marker in markers) {
+        marker["selected"] = false;
+      }
       markers[index]["selected"] = true;
     });
 
@@ -663,10 +686,11 @@ class _MapPageState extends State<MapPage> {
     PermissionStatus permissionGranted;
 
     serviceEnabled = await locationController.serviceEnabled();
-    if (serviceEnabled) {
+    if (!serviceEnabled) {
       serviceEnabled = await locationController.requestService();
-    } else {
-      return;
+      if (!serviceEnabled) {
+        return;
+      }
     }
 
     permissionGranted = await locationController.hasPermission();
@@ -677,7 +701,22 @@ class _MapPageState extends State<MapPage> {
       }
     }
 
-    locationController.onLocationChanged.listen((currentLocation) {
+    final initialLocation = await locationController.getLocation();
+    if (initialLocation.latitude != null &&
+        initialLocation.longitude != null &&
+        mounted) {
+      setState(() {
+        currentPosition = LatLng(
+          initialLocation.latitude!,
+          initialLocation.longitude!,
+        );
+      });
+    }
+
+    await _locationSubscription?.cancel();
+    _locationSubscription = locationController.onLocationChanged.listen((
+      currentLocation,
+    ) {
       if (currentLocation.latitude != null &&
           currentLocation.longitude != null &&
           context.mounted) {
@@ -689,5 +728,113 @@ class _MapPageState extends State<MapPage> {
         });
       }
     });
+  }
+}
+
+class _MapToolbar extends StatelessWidget {
+  final VoidCallback onReportTap;
+  final VoidCallback onProfileTap;
+
+  const _MapToolbar({required this.onReportTap, required this.onProfileTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
+      decoration: BoxDecoration(
+        color: WoofCareColors.offWhite.withValues(alpha: 0.96),
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.18),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Nearby Help',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: WoofCareColors.primaryTextAndIcons,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Shelters, vets, reports, and adopters',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: WoofCareColors.mutedText.withValues(alpha: 0.82),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          IconButton(
+            tooltip: 'Report dog',
+            onPressed: onReportTap,
+            icon: const FaIcon(
+              FontAwesomeIcons.bullhorn,
+              color: WoofCareColors.buttonColor,
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: 4),
+          WoofCareProfileAvatar(onTap: onProfileTap),
+        ],
+      ),
+    );
+  }
+}
+
+class _MapFilterBar extends StatelessWidget {
+  final String selectedType;
+  final ValueChanged<String> onSelected;
+
+  const _MapFilterBar({required this.selectedType, required this.onSelected});
+
+  static const filters = [
+    ('all', 'All'),
+    ('report', 'Reports'),
+    ('dog', 'Dogs'),
+    ('vet', 'Vets'),
+    ('shelter', 'Shelters'),
+    ('ngo', 'NGOs'),
+    ('local', 'Adopt'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 42,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        itemCount: filters.length,
+        separatorBuilder: (context, index) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final filter = filters[index];
+          return WoofCareFilterPill(
+            label: filter.$2,
+            selected: selectedType == filter.$1,
+            onTap: () => onSelected(filter.$1),
+          );
+        },
+      ),
+    );
   }
 }
