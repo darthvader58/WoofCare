@@ -4,6 +4,8 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:woofcare/config/colors.dart';
 import 'package:woofcare/models/article.dart';
 import 'package:woofcare/services/articles.dart';
+import 'package:woofcare/ui/widgets/app_chrome.dart';
+import 'package:woofcare/ui/widgets/article_card.dart';
 
 /// ArticlePage - Main screen that displays all articles from Firebase.
 /// Features: Search, category filtering, and real-time updates from database.
@@ -55,81 +57,35 @@ class _ArticlePageState extends State<ArticlePage> {
       backgroundColor: WoofCareColors.primaryBackground,
       body: Stack(
         children: [
-          Positioned.fill(
-            child: Opacity(
-              opacity: 0.4,
-              child: Image.asset(
-                "assets/images/patterns/BigPawPattern.png",
-                repeat: ImageRepeat.repeat,
-                scale: 0.5,
-              ),
-            ),
-          ),
           SafeArea(
             child: Column(
               children: [
-                // Header Section
-                Container(
-                  color: Colors.transparent,
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Search Bar
-                      SizedBox(
-                        height: 48,
-                        child: TextField(
-                          controller: searchController,
-                          onChanged: _performSearch,
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: WoofCareColors.primaryTextAndIcons,
-                          ),
-                          decoration: InputDecoration(
-                            hintText: 'Search for Articles...',
-                            hintStyle: TextStyle(
-                              fontSize: 20,
-                              color: WoofCareColors.primaryTextAndIcons
-                                  .withValues(alpha: 0.6),
-                            ),
-                            filled: true,
-                            fillColor: WoofCareColors.secondaryBackground,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(30),
-                              borderSide: BorderSide.none,
-                            ),
-                            suffixIcon: Icon(
-                              Icons.search,
-                              color: WoofCareColors.primaryTextAndIcons,
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 18,
-                              vertical: 12,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      // Category Buttons
-                      SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Row(
-                          children: [
-                            _buildCategoryButton('All'),
-                            const SizedBox(width: 8),
-                            _buildCategoryButton('Guide'),
-                            const SizedBox(width: 8),
-                            _buildCategoryButton('Medical'),
-                            const SizedBox(width: 8),
-                            _buildCategoryButton('Stories'),
-                          ],
-                        ),
-                      ),
-                    ],
+                WoofCareScreenHeader(
+                  title: 'Articles',
+                  subtitle: 'Care guides and rescue stories',
+                  searchController: searchController,
+                  searchHint: 'Search articles',
+                  onSearchChanged: _performSearch,
+                  actions: [
+                    WoofCareProfileAvatar(
+                      onTap: () => Navigator.pushNamed(context, "/profile"),
+                    ),
+                  ],
+                  bottom: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        _buildCategoryButton('All'),
+                        const SizedBox(width: 8),
+                        _buildCategoryButton('Guide'),
+                        const SizedBox(width: 8),
+                        _buildCategoryButton('Medical'),
+                        const SizedBox(width: 8),
+                        _buildCategoryButton('Stories'),
+                      ],
+                    ),
                   ),
                 ),
-                // Articles List
                 Expanded(
                   child:
                       searchResults != null
@@ -148,30 +104,14 @@ class _ArticlePageState extends State<ArticlePage> {
   /// Highlights the button if it's currently selected.
   Widget _buildCategoryButton(String category) {
     final isSelected = selectedCategory == category;
-    return GestureDetector(
+    return WoofCareFilterPill(
+      label: category,
+      selected: isSelected,
       onTap: () {
         setState(() {
           selectedCategory = category;
         });
       },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
-        decoration: BoxDecoration(
-          color:
-              isSelected
-                  ? WoofCareColors.buttonColor
-                  : WoofCareColors.backgroundElementColor,
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Text(
-          category,
-          style: TextStyle(
-            color:
-                isSelected ? Colors.white : WoofCareColors.primaryTextAndIcons,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ),
     );
   }
 
@@ -197,33 +137,29 @@ class _ArticlePageState extends State<ArticlePage> {
         }
 
         if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return Center(
-            child: Text(
-              'No articles found',
-              style: TextStyle(
-                color: WoofCareColors.primaryTextAndIcons,
-                fontSize: 16,
-              ),
-            ),
+          return const WoofCareEmptyState(
+            icon: Icons.menu_book_outlined,
+            title: 'No articles found',
+            message: 'New care resources will appear here when available.',
           );
         }
 
         final articles = snapshot.data!;
         return ListView.builder(
           physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(11, 24, 11, 124),
           itemCount: articles.length,
           itemBuilder: (context, index) {
             final article = articles[index];
             return Padding(
               padding: const EdgeInsets.only(bottom: 16),
-              child: _buildArticleCard(
-                article: article,
+              child: ArticleCard(
                 category: article.category,
                 title: article.title,
                 author: article.author,
                 date: DateFormat('MMM yyyy').format(article.date),
                 imageUrl: article.imageUrl,
+                onTap: () => _openArticle(article),
               ),
             );
           },
@@ -235,190 +171,54 @@ class _ArticlePageState extends State<ArticlePage> {
   /// Displays filtered search results when user searches for articles.
   Widget _buildSearchResults() {
     if (searchResults!.isEmpty) {
-      return Center(
-        child: Text(
-          'No articles found',
-          style: TextStyle(color: WoofCareColors.primaryTextAndIcons),
-        ),
+      return const WoofCareEmptyState(
+        icon: Icons.search_off,
+        title: 'No articles found',
+        message: 'Try a different care topic or category.',
       );
     }
 
     return ListView.separated(
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(11, 24, 11, 124),
       itemCount: searchResults!.length,
       separatorBuilder: (context, index) => const SizedBox(height: 16),
       itemBuilder: (context, index) {
         final article = searchResults![index];
-        return _buildArticleCard(
-          article: article,
+        return ArticleCard(
           category: article.category,
           title: article.title,
           author: article.author,
           date: DateFormat('MMM yyyy').format(article.date),
           imageUrl: article.imageUrl,
+          onTap: () => _openArticle(article),
         );
       },
     );
   }
 
-  /// Builds a single article card with image, title, author, and date.
-  /// Clicking opens the original article in a browser.
-  Widget _buildArticleCard({
-    required Article article,
-    required String category,
-    required String title,
-    required String author,
-    required String date,
-    required String imageUrl,
-  }) {
-    return InkWell(
-      onTap: () async {
-        if (article.sourceUrl != null && article.sourceUrl!.isNotEmpty) {
-          final messenger = ScaffoldMessenger.of(context);
-          try {
-            final uri = Uri.parse(article.sourceUrl!);
-            await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
-          } catch (e) {
-            messenger.showSnackBar(
-              SnackBar(
-                content: Text('Could not open article: $e'),
-                backgroundColor: Colors.red,
-              ),
-            );
-          }
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('This article has no source URL'),
-              backgroundColor: Colors.orange,
-            ),
-          );
-        }
-      },
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: WoofCareColors.secondaryBackground,
-          borderRadius: BorderRadius.circular(16),
+  Future<void> _openArticle(Article article) async {
+    if (article.sourceUrl == null || article.sourceUrl!.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('This article has no source URL'),
+          backgroundColor: Colors.orange,
         ),
-        child: Row(
-          children: [
-            // Article Image
-            ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: Container(
-                width: 120,
-                height: 120,
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child:
-                    imageUrl.isNotEmpty
-                        ? Image.network(
-                          imageUrl,
-                          fit: BoxFit.cover,
-                          loadingBuilder: (context, child, loadingProgress) {
-                            if (loadingProgress == null) return child;
-                            return Center(
-                              child: CircularProgressIndicator(
-                                value:
-                                    loadingProgress.expectedTotalBytes != null
-                                        ? loadingProgress
-                                                .cumulativeBytesLoaded /
-                                            loadingProgress.expectedTotalBytes!
-                                        : null,
-                                strokeWidth: 2,
-                              ),
-                            );
-                          },
-                          errorBuilder:
-                              (context, error, stackTrace) => Container(
-                                color: WoofCareColors.buttonColor.withValues(
-                                  alpha: 0.1,
-                                ),
-                                child: Icon(
-                                  Icons.pets,
-                                  size: 60,
-                                  color: WoofCareColors.buttonColor,
-                                ),
-                              ),
-                        )
-                        : Container(
-                          color: WoofCareColors.buttonColor.withValues(
-                            alpha: 0.1,
-                          ),
-                          child: Icon(
-                            Icons.pets,
-                            size: 60,
-                            color: WoofCareColors.buttonColor,
-                          ),
-                        ),
-              ),
-            ),
-            const SizedBox(width: 16),
-            // Article Info
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    category,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: WoofCareColors.buttonColor,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: WoofCareColors.primaryTextAndIcons,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.person,
-                        size: 16,
-                        color: WoofCareColors.primaryTextAndIcons,
-                      ),
-                      const SizedBox(width: 4),
-                      Flexible(
-                        child: Text(
-                          author,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: WoofCareColors.buttonColor,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        date,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: WoofCareColors.primaryTextAndIcons,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
+      );
+      return;
+    }
+
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final uri = Uri.parse(article.sourceUrl!);
+      await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Could not open article: $e'),
+          backgroundColor: Colors.red,
         ),
-      ),
-    );
+      );
+    }
   }
 }

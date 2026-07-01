@@ -10,7 +10,7 @@ class Post extends StatelessWidget {
   final String postId;
   final List<String> usersWhoLiked;
 
-  Post({
+  const Post({
     super.key,
     required this.message,
     required this.user,
@@ -19,123 +19,195 @@ class Post extends StatelessWidget {
     required this.usersWhoLiked,
   });
 
-  final currUser = AUTH.currentUser;
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        color: WoofCareColors.secondaryBackground,
+        boxShadow: [
+          BoxShadow(
+            color: WoofCareColors.cardShadow,
+            blurRadius: 14,
+            offset: const Offset(0, 7),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _PostHeader(user: user, time: time),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 4, 18, 14),
+            child: Text(
+              message,
+              style: const TextStyle(
+                color: WoofCareColors.primaryTextAndIcons,
+                fontSize: 16,
+                height: 1.42,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          Divider(
+            height: 1,
+            color: WoofCareColors.primaryTextAndIcons.withValues(alpha: 0.12),
+          ),
+          _PostActions(postId: postId, usersWhoLiked: usersWhoLiked),
+        ],
+      ),
+    );
+  }
+}
+
+class _PostHeader extends StatelessWidget {
+  final String user;
+  final String time;
+
+  const _PostHeader({required this.user, required this.time});
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-      // The container that holds all the elements of the post
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(24.0),
-          color: WoofCareColors.secondaryBackground,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              // Row that holds the profile pic and the rest of the post info
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                spacing: 10.0,
-                children: [
-                  // TODO: currently an avatar icon placeholder
-                  CircleAvatar(
-                    backgroundColor: Color(0xFFCAB096),
-                    child: Icon(
-                      Icons.person,
-                      color: WoofCareColors.primaryTextAndIcons,
-                    ),
-                  ),
-
-                  Flexible(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      spacing: 5.0,
-                      children: [
-                        Row(
-                          spacing: 5.0,
-                          children: [
-                            // User's Email
-                            Text(
-                              user,
-                              style: TextStyle(
-                                color: WoofCareColors.primaryTextAndIcons,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-
-                            Text(
-                              '·',
-                              style: TextStyle(
-                                color: WoofCareColors.primaryTextAndIcons,
-                              ),
-                            ),
-
-                            Flexible(
-                              // Posting time
-                              child: Text(
-                                time,
-                                style: TextStyle(
-                                  color: WoofCareColors.primaryTextAndIcons
-                                      .withValues(alpha: 0.5),
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
-
-                        Text(
-                          // The message of the post (the main part)
-                          message,
-                          style: TextStyle(
-                            color: WoofCareColors.primaryTextAndIcons,
-                            fontSize: 16,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          CircleAvatar(
+            radius: 23,
+            backgroundColor: WoofCareColors.backgroundElementColor,
+            child: Text(
+              _initialsFor(user),
+              style: const TextStyle(
+                color: WoofCareColors.primaryTextAndIcons,
+                fontWeight: FontWeight.w800,
               ),
             ),
-
-            // Row that holds the three interactions with the post (like it, comment it, share it)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  ThumbsUpButton(
-                    postId: postId,
-                    numOfLikes: usersWhoLiked.length,
-                  ),
-
-                  IconButton(
-                    onPressed: () {},
-                    icon: Icon(Icons.comment),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _displayNameFor(user),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
                     color: WoofCareColors.primaryTextAndIcons,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
                   ),
-                  IconButton(
-                    onPressed: () {},
-                    icon: Icon(Icons.share),
-                    color: WoofCareColors.primaryTextAndIcons,
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  time,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: WoofCareColors.primaryTextAndIcons.withValues(
+                      alpha: 0.58,
+                    ),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
                   ),
-                ],
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: WoofCareColors.buttonColor.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Text(
+              'Help',
+              style: TextStyle(
+                color: WoofCareColors.buttonColor,
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
               ),
             ),
-          ],
-        ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _displayNameFor(String value) {
+    final localPart = value.split('@').first.trim();
+    if (localPart.isEmpty) return 'Community Member';
+
+    return localPart
+        .split(RegExp(r'[._\-\s]+'))
+        .where((part) => part.isNotEmpty)
+        .map((part) => '${part[0].toUpperCase()}${part.substring(1)}')
+        .join(' ');
+  }
+
+  String _initialsFor(String value) {
+    final displayName = _displayNameFor(value);
+    final parts = displayName.split(' ').where((part) => part.isNotEmpty);
+    return parts.take(2).map((part) => part[0]).join();
+  }
+}
+
+class _PostActions extends StatelessWidget {
+  final String postId;
+  final List<String> usersWhoLiked;
+
+  const _PostActions({required this.postId, required this.usersWhoLiked});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(10, 4, 10, 6),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          ThumbsUpButton(
+            postId: postId,
+            numOfLikes: usersWhoLiked.length,
+            initiallyLiked: usersWhoLiked.contains(AUTH.currentUser?.email),
+          ),
+          _SocialActionButton(
+            icon: Icons.comment_outlined,
+            label: 'Comment',
+            onTap: () {},
+          ),
+          _SocialActionButton(
+            icon: Icons.share_outlined,
+            label: 'Share',
+            onTap: () {},
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SocialActionButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _SocialActionButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return TextButton.icon(
+      onPressed: onTap,
+      icon: Icon(icon, size: 19),
+      label: Text(label),
+      style: TextButton.styleFrom(
+        foregroundColor: WoofCareColors.primaryTextAndIcons,
+        textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
       ),
     );
   }

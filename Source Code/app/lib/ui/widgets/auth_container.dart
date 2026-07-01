@@ -9,15 +9,16 @@ class AuthContainer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
+      constraints: const BoxConstraints(maxWidth: 380),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(28),
         color: WoofCareColors.secondaryBackground,
         boxShadow: [
           BoxShadow(
-            blurRadius: 20,
+            blurRadius: 24,
             blurStyle: BlurStyle.normal,
-            color: Colors.black.withValues(alpha: 0.1),
-            offset: const Offset(0, 10),
+            color: WoofCareColors.cardShadow,
+            offset: const Offset(0, 14),
             spreadRadius: 0,
           ),
         ],

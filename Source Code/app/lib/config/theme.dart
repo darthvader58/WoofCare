@@ -17,13 +17,13 @@ class WoofCareTheme {
       visualDensity: VisualDensity.standard,
       colorScheme: const ColorScheme(
         brightness: Brightness.light,
-        surface: WoofCareColors.buttonColor,
-        onSurface: Colors.white,
-        primary: Colors.black,
+        surface: WoofCareColors.secondaryBackground,
+        onSurface: WoofCareColors.primaryTextAndIcons,
+        primary: WoofCareColors.buttonColor,
         onPrimary: Colors.white,
         secondary: WoofCareColors.buttonColor,
         onSecondary: Colors.white,
-        error: Colors.red,
+        error: WoofCareColors.errorMessageColor,
         onError: Colors.white,
       ),
       textTheme: ThemeData.light().textTheme
@@ -48,9 +48,12 @@ class WoofCareTheme {
               letterSpacing: 1.4,
             ),
           )
-          .apply(displayColor: Colors.white, bodyColor: Colors.white),
+          .apply(
+            displayColor: WoofCareColors.primaryTextAndIcons,
+            bodyColor: WoofCareColors.primaryTextAndIcons,
+          ),
       appBarTheme: AppBarTheme(
-        systemOverlayStyle: SystemUiOverlayStyle.light,
+        systemOverlayStyle: SystemUiOverlayStyle.dark,
         backgroundColor: WoofCareColors.secondaryBackground,
         elevation: 0,
         titleTextStyle: TextStyle(
@@ -68,13 +71,16 @@ class WoofCareTheme {
       ),
       inputDecorationTheme: const InputDecorationTheme(
         labelStyle: TextStyle(
-          color: WoofCareColors.gray,
+          color: WoofCareColors.mutedText,
           fontSize: 16,
           fontWeight: FontWeight.w500,
         ),
         filled: true,
-        fillColor: WoofCareColors.inputBackground,
-        focusedBorder: InputBorder.none,
+        fillColor: WoofCareColors.textBoxColor,
+        focusedBorder: OutlineInputBorder(
+          borderSide: BorderSide(color: WoofCareColors.buttonColor, width: 1.4),
+          borderRadius: BorderRadius.all(Radius.circular(16)),
+        ),
       ),
       snackBarTheme: const SnackBarThemeData(
         elevation: 10,
