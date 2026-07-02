@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:woofcare/config/colors.dart';
 import 'package:woofcare/config/constants.dart';
 import 'package:woofcare/tools/functions.dart';
@@ -52,12 +51,14 @@ class _SocialMediaFeedState extends State<SocialMediaFeed> {
                       left: false,
                       right: false,
                       child: SingleChildScrollView(
+                        keyboardDismissBehavior:
+                            ScrollViewKeyboardDismissBehavior.onDrag,
                         controller: scrollController,
-                        padding: const EdgeInsets.only(
+                        padding: EdgeInsets.only(
                           left: 25,
                           right: 25,
                           top: 10,
-                          bottom: 30,
+                          bottom: MediaQuery.viewInsetsOf(context).bottom + 30,
                         ),
                         child: PostingPage(scrollController: scrollController),
                       ),
@@ -83,8 +84,11 @@ class _SocialMediaFeedState extends State<SocialMediaFeed> {
             WoofCareScreenHeader(
               title: 'Community',
               subtitle: 'Updates, sightings, and rescue support',
-              height: 112,
+              icon: Icons.groups_rounded,
+              height: 104,
               actions: [
+                _CreatePostButton(onTap: _postButtonPressed),
+                const SizedBox(width: 8),
                 WoofCareProfileAvatar(
                   onTap: () => Navigator.pushNamed(context, "/profile"),
                 ),
@@ -146,15 +150,42 @@ class _SocialMediaFeedState extends State<SocialMediaFeed> {
           ],
         ),
       ),
+    );
+  }
+}
 
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: WoofCareColors.buttonColor,
-        elevation: 8,
-        tooltip: 'Create post',
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        onPressed: () => _postButtonPressed(),
-        child: FaIcon(FontAwesomeIcons.paperPlane, color: Colors.white),
+class _CreatePostButton extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _CreatePostButton({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: 'Create post',
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: onTap,
+        child: Container(
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(
+            color: WoofCareColors.buttonColor,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: WoofCareColors.buttonColor.withValues(alpha: 0.24),
+                blurRadius: 12,
+                offset: const Offset(0, 5),
+              ),
+            ],
+          ),
+          child: const Icon(
+            Icons.edit_square,
+            color: WoofCareColors.offWhite,
+            size: 21,
+          ),
+        ),
       ),
     );
   }

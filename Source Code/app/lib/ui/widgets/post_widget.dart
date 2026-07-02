@@ -21,41 +21,52 @@ class Post extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        color: WoofCareColors.secondaryBackground,
-        boxShadow: [
-          BoxShadow(
-            color: WoofCareColors.cardShadow,
-            blurRadius: 14,
-            offset: const Offset(0, 7),
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 14),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18),
+          color: WoofCareColors.offWhite,
+          border: Border.all(
+            color: WoofCareColors.primaryTextAndIcons.withValues(alpha: 0.08),
           ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _PostHeader(user: user, time: time),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(18, 4, 18, 14),
-            child: Text(
-              message,
-              style: const TextStyle(
-                color: WoofCareColors.primaryTextAndIcons,
-                fontSize: 16,
-                height: 1.42,
-                fontWeight: FontWeight.w500,
-              ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.08),
+              blurRadius: 18,
+              offset: const Offset(0, 8),
             ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _PostHeader(user: user, time: time),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(18, 4, 18, 18),
+                child: Text(
+                  message,
+                  style: const TextStyle(
+                    color: WoofCareColors.primaryTextAndIcons,
+                    fontSize: 17,
+                    height: 1.4,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              Container(
+                height: 1,
+                color: WoofCareColors.primaryTextAndIcons.withValues(
+                  alpha: 0.08,
+                ),
+              ),
+              _PostActions(postId: postId, usersWhoLiked: usersWhoLiked),
+            ],
           ),
-          Divider(
-            height: 1,
-            color: WoofCareColors.primaryTextAndIcons.withValues(alpha: 0.12),
-          ),
-          _PostActions(postId: postId, usersWhoLiked: usersWhoLiked),
-        ],
+        ),
       ),
     );
   }
@@ -70,18 +81,32 @@ class _PostHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(18, 16, 18, 10),
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 12),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          CircleAvatar(
-            radius: 23,
-            backgroundColor: WoofCareColors.backgroundElementColor,
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: WoofCareColors.backgroundElementColor,
+              border: Border.all(color: WoofCareColors.offWhite, width: 3),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.08),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            alignment: Alignment.center,
             child: Text(
               _initialsFor(user),
               style: const TextStyle(
                 color: WoofCareColors.primaryTextAndIcons,
-                fontWeight: FontWeight.w800,
+                fontSize: 17,
+                fontWeight: FontWeight.w900,
               ),
             ),
           ),
@@ -96,7 +121,7 @@ class _PostHeader extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: WoofCareColors.primaryTextAndIcons,
-                    fontSize: 16,
+                    fontSize: 17,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -117,16 +142,16 @@ class _PostHeader extends StatelessWidget {
             ),
           ),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
             decoration: BoxDecoration(
-              color: WoofCareColors.buttonColor.withValues(alpha: 0.12),
+              color: WoofCareColors.floatingActionIcons.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(14),
             ),
             child: const Text(
-              'Help',
+              'Community',
               style: TextStyle(
-                color: WoofCareColors.buttonColor,
-                fontSize: 12,
+                color: WoofCareColors.floatingActionIcons,
+                fontSize: 11,
                 fontWeight: FontWeight.w800,
               ),
             ),
@@ -163,24 +188,36 @@ class _PostActions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(10, 4, 10, 6),
+      padding: const EdgeInsets.fromLTRB(8, 6, 8, 8),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          ThumbsUpButton(
-            postId: postId,
-            numOfLikes: usersWhoLiked.length,
-            initiallyLiked: usersWhoLiked.contains(AUTH.currentUser?.email),
+          Expanded(
+            child: Center(
+              child: ThumbsUpButton(
+                postId: postId,
+                numOfLikes: usersWhoLiked.length,
+                initiallyLiked: usersWhoLiked.contains(AUTH.currentUser?.email),
+              ),
+            ),
           ),
-          _SocialActionButton(
-            icon: Icons.comment_outlined,
-            label: 'Comment',
-            onTap: () {},
+          Expanded(
+            child: Center(
+              child: _SocialActionButton(
+                icon: Icons.comment_outlined,
+                label: 'Comment',
+                onTap: () {},
+              ),
+            ),
           ),
-          _SocialActionButton(
-            icon: Icons.share_outlined,
-            label: 'Share',
-            onTap: () {},
+          Expanded(
+            child: Center(
+              child: _SocialActionButton(
+                icon: Icons.share_outlined,
+                label: 'Share',
+                onTap: () {},
+              ),
+            ),
           ),
         ],
       ),
@@ -207,6 +244,7 @@ class _SocialActionButton extends StatelessWidget {
       label: Text(label),
       style: TextButton.styleFrom(
         foregroundColor: WoofCareColors.primaryTextAndIcons,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
         textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
       ),
     );
