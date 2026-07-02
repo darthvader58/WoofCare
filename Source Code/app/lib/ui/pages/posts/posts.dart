@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:woofcare/config/colors.dart';
 import 'package:woofcare/config/constants.dart';
 import 'package:woofcare/tools/functions.dart';
 import 'package:woofcare/ui/pages/posts/posting.dart';
+import 'package:woofcare/ui/widgets/app_chrome.dart';
 import 'package:woofcare/ui/widgets/post_widget.dart';
 
 class SocialMediaFeed extends StatefulWidget {
@@ -24,7 +24,7 @@ class _SocialMediaFeedState extends State<SocialMediaFeed> {
         side: BorderSide(
           color: WoofCareColors.borderOutline.withValues(alpha: 0.5),
         ),
-        borderRadius: BorderRadiusGeometry.circular(90),
+        borderRadius: BorderRadius.circular(28),
       ),
       backgroundColor: WoofCareColors.secondaryBackground,
       builder: (context) {
@@ -51,12 +51,14 @@ class _SocialMediaFeedState extends State<SocialMediaFeed> {
                       left: false,
                       right: false,
                       child: SingleChildScrollView(
+                        keyboardDismissBehavior:
+                            ScrollViewKeyboardDismissBehavior.onDrag,
                         controller: scrollController,
-                        padding: const EdgeInsets.only(
+                        padding: EdgeInsets.only(
                           left: 25,
                           right: 25,
                           top: 10,
-                          bottom: 30,
+                          bottom: MediaQuery.viewInsetsOf(context).bottom + 30,
                         ),
                         child: PostingPage(scrollController: scrollController),
                       ),
@@ -75,78 +77,114 @@ class _SocialMediaFeedState extends State<SocialMediaFeed> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: WoofCareColors.primaryBackground,
-      body: Stack(
-        children: [
-          Positioned.fill(
-            child: Opacity(
-              opacity: 0.4,
-              child: Image.asset(
-                "assets/images/patterns/BigPawPattern.png",
-                repeat: ImageRepeat.repeat,
-                scale: 0.5,
-              ),
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            WoofCareScreenHeader(
+              title: 'Community',
+              subtitle: 'Updates, sightings, and rescue support',
+              icon: Icons.groups_rounded,
+              height: 104,
+              actions: [
+                _CreatePostButton(onTap: _postButtonPressed),
+                const SizedBox(width: 8),
+                WoofCareProfileAvatar(
+                  onTap: () => Navigator.pushNamed(context, "/profile"),
+                ),
+              ],
             ),
-          ),
-          Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // This Expanded widget holds all the posts that will appear on the feed page
-              Expanded(
-                // We use a StreamBuilder to hear for any changes in the "User Posts" collection from firebase
-                child: StreamBuilder(
-                  stream:
-                      FIRESTORE
-                          .collection("posts")
-                          .orderBy("timestamp", descending: true)
-                          .snapshots(),
+            Expanded(
+              child: StreamBuilder(
+                stream:
+                    FIRESTORE
+                        .collection("posts")
+                        .orderBy("timestamp", descending: true)
+                        .snapshots(),
 
-                  builder: (context, snapshot) {
-                    // If there is any data in the snapshot of the collection return a ListView.builder will all the posts (docs)
-                    if (snapshot.hasData) {
-                      return ListView.builder(
-                        itemCount: snapshot.data!.docs.length,
-                        itemBuilder: (context, index) {
-                          final post = snapshot.data!.docs[index];
-                          return Post(
-                            message: post['message'],
-                            user: post['email'],
-                            time: formatDate(post['timestamp']),
-                            postId: post.id,
-                            usersWhoLiked: List<String>.from(
-                              post['likes'] ?? [],
-                            ),
-                          );
-                        },
-                      );
-                    } else if (snapshot.hasError) {
-                      return Center(
-                        child: Text(
-                          "Error: ${snapshot.error}",
-                          style: TextStyle(
-                            color: WoofCareColors.errorMessageColor,
-                          ),
-                        ),
+                builder: (context, snapshot) {
+                  // If there is any data in the snapshot of the collection return a ListView.builder will all the posts (docs)
+                  if (snapshot.hasData) {
+                    if (snapshot.data!.docs.isEmpty) {
+                      return const WoofCareEmptyState(
+                        icon: Icons.forum_outlined,
+                        title: "No posts yet",
+                        message:
+                            "Share the first update with the WoofCare community.",
                       );
                     }
-                    return const Center(child: CircularProgressIndicator());
-                  },
-                ),
+
+                    return ListView.builder(
+                      physics: const BouncingScrollPhysics(),
+                      padding: const EdgeInsets.fromLTRB(12, 14, 12, 124),
+                      itemCount: snapshot.data!.docs.length,
+                      itemBuilder: (context, index) {
+                        final post = snapshot.data!.docs[index];
+                        return Post(
+                          message: post['message'],
+                          user: post['email'],
+                          time: formatDate(post['timestamp']),
+                          postId: post.id,
+                          usersWhoLiked: List<String>.from(post['likes'] ?? []),
+                        );
+                      },
+                    );
+                  } else if (snapshot.hasError) {
+                    return Center(
+                      child: Text(
+                        "Error: ${snapshot.error}",
+                        style: TextStyle(
+                          color: WoofCareColors.errorMessageColor,
+                        ),
+                      ),
+                    );
+                  }
+                  return const Center(
+                    child: CircularProgressIndicator(
+                      color: WoofCareColors.buttonColor,
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CreatePostButton extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _CreatePostButton({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: 'Create post',
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: onTap,
+        child: Container(
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(
+            color: WoofCareColors.buttonColor,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: WoofCareColors.buttonColor.withValues(alpha: 0.24),
+                blurRadius: 12,
+                offset: const Offset(0, 5),
               ),
             ],
           ),
-        ],
-      ),
-
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: WoofCareColors.buttonColor,
-        elevation: 4,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        onPressed: () => _postButtonPressed(),
-        child: FaIcon(
-          FontAwesomeIcons.paperPlane,
-          color: Colors.white,
+          child: const Icon(
+            Icons.edit_square,
+            color: WoofCareColors.offWhite,
+            size: 21,
+          ),
         ),
       ),
     );

@@ -5,6 +5,14 @@ import '/config/constants.dart';
 import '/models/profile.dart';
 
 class Auth {
+  static void _showUnexpectedError(BuildContext context, Object error) {
+    if (!context.mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("Authentication failed: ${error.toString()}")),
+    );
+  }
+
   static Future<void> launch(
     BuildContext context,
     void Function() onLoggedIn,
@@ -37,14 +45,17 @@ class Auth {
     required BuildContext context,
     required void Function(FirebaseAuthException e) error,
   }) async {
+    User? createdUser;
+
     try {
-      await AUTH.createUserWithEmailAndPassword(
+      final credential = await AUTH.createUserWithEmailAndPassword(
         email: email,
         password: password,
       );
+      createdUser = credential.user;
 
       String uid = AUTH.currentUser!.uid;
-      FIRESTORE.collection("users").doc(uid).set(data);
+      await FIRESTORE.collection("users").doc(uid).set(data);
 
       profile = await Profile.fromID(uid);
 
@@ -54,7 +65,16 @@ class Auth {
     } on FirebaseAuthException catch (e) {
       error(e);
     } catch (e) {
-      // TODO: Handle other errors
+      if (createdUser != null) {
+        try {
+          await createdUser.delete();
+        } catch (_) {
+          await AUTH.signOut();
+        }
+      }
+
+      if (!context.mounted) return;
+      _showUnexpectedError(context, e);
     }
   }
 
@@ -77,7 +97,9 @@ class Auth {
     } on FirebaseAuthException catch (e) {
       error(e);
     } catch (e) {
-      // TODO: Handle other errors
+      await AUTH.signOut();
+      if (!context.mounted) return;
+      _showUnexpectedError(context, e);
     }
   }
 

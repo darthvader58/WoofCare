@@ -21,7 +21,7 @@ class _LogInPageState extends State<LogInPage> {
   final _passwordTextController = TextEditingController();
   final _errorTextController = TextEditingController();
   var _visibleMessage = false;
-  var _visiblePassword = false;
+  var _hidePassword = true;
 
   String? errorMessage = "";
   bool rememberMe = false;
@@ -41,7 +41,7 @@ class _LogInPageState extends State<LogInPage> {
   // Toggle the visibility of password
   void _showPassword() {
     setState(() {
-      _visiblePassword = !_visiblePassword;
+      _hidePassword = !_hidePassword;
     });
   }
 
@@ -53,8 +53,14 @@ class _LogInPageState extends State<LogInPage> {
       body: AuthBackground(
         child: Center(
           child: SingleChildScrollView(
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 25.0),
+              padding: EdgeInsets.fromLTRB(
+                25,
+                24,
+                25,
+                MediaQuery.viewInsetsOf(context).bottom + 24,
+              ),
               child: AuthContainer(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -93,10 +99,13 @@ class _LogInPageState extends State<LogInPage> {
                     CustomTextField(
                       controller: _passwordTextController,
                       hintText: "Password",
-                      obscureText: _visiblePassword,
-                      prefix: Icons.password,
+                      obscureText: _hidePassword,
+                      prefix: Icons.lock,
                       onSuffixTap: () => _showPassword(),
-                      suffix: Icons.visibility,
+                      suffix:
+                          _hidePassword
+                              ? Icons.visibility
+                              : Icons.visibility_off,
                       maxLines: 1,
                     ),
 
@@ -119,11 +128,13 @@ class _LogInPageState extends State<LogInPage> {
                               ),
                               Checkbox(
                                 value: rememberMe,
-                                side: const BorderSide(),
-                                focusColor: Colors.green,
+                                side: const BorderSide(
+                                  color: WoofCareColors.primaryTextAndIcons,
+                                ),
+                                activeColor: WoofCareColors.buttonColor,
                                 onChanged: (bool? value) {
                                   setState(() {
-                                    rememberMe = !rememberMe;
+                                    rememberMe = value ?? false;
                                   });
                                 },
                               ),
@@ -155,6 +166,7 @@ class _LogInPageState extends State<LogInPage> {
                     //Log In Button
                     CustomButton(
                       text: "Log In",
+                      icon: Icons.login,
                       // margin: 30,
                       onTap:
                           () => Auth.login(

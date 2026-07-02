@@ -1,9 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
 import 'package:woofcare/config/colors.dart';
-import 'package:woofcare/models/profile.dart';
-import 'package:woofcare/ui/pages/profile/profile.dart';
+import 'package:woofcare/ui/widgets/app_chrome.dart';
 
 import '/config/constants.dart';
 import '/ui/widgets/custom_button.dart';
@@ -16,339 +14,303 @@ class ConversationsPage extends StatefulWidget {
 }
 
 class _ConversationsPageState extends State<ConversationsPage> {
+  final TextEditingController _searchController = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
   Future<String> getLastConversationMessage(
     QueryDocumentSnapshot conversation,
   ) async {
     try {
-      final QuerySnapshot<Map<String, dynamic>> messagesSnapshot =
+      final messagesSnapshot =
           await conversation.reference
               .collection('messages')
               .orderBy('time', descending: true)
               .limit(1)
               .get();
+
       if (messagesSnapshot.docs.isNotEmpty) {
         final data = messagesSnapshot.docs.first.data();
         return data["text"] as String? ?? "No messages yet";
       }
-    } catch (e) {
-      e.printError();
+    } catch (_) {
+      return "No messages yet";
     }
+
     return "No messages yet";
+  }
+
+  void _openSearchSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.6,
+          minChildSize: 0.4,
+          maxChildSize: 0.9,
+          expand: false,
+          builder: (context, scrollController) {
+            return const SearchBottomSheet();
+          },
+        );
+      },
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: WoofCareColors.secondaryBackground,
-      appBar: AppBar(
-        title: const Text(
-          "Messages",
-          style: TextStyle(
-            color: WoofCareColors.primaryTextAndIcons,
-            fontWeight: FontWeight.bold,
-            fontSize: 24,
-          ),
-        ),
-        centerTitle: true,
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        automaticallyImplyLeading: false,
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: WoofCareColors.buttonColor,
-        elevation: 4,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        onPressed: () {
-          showModalBottomSheet(
-            context: context,
-            isScrollControlled: true,
-            shape: RoundedRectangleBorder(
-              side: BorderSide(
-                color: WoofCareColors.borderOutline.withValues(alpha: 0.5),
-              ),
-              borderRadius: BorderRadiusGeometry.circular(90),
+      backgroundColor: WoofCareColors.primaryBackground,
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            WoofCareScreenHeader(
+              title: 'Messages',
+              subtitle: 'Coordinate help and follow-ups',
+              icon: Icons.chat_bubble_rounded,
+              height: 160,
+              searchController: _searchController,
+              searchHint: 'Search conversations',
+              onSearchChanged:
+                  (value) =>
+                      setState(() => _query = value.trim().toLowerCase()),
+              actions: [
+                IconButton.filledTonal(
+                  tooltip: 'New conversation',
+                  style: IconButton.styleFrom(
+                    backgroundColor: WoofCareColors.floatingActionIcons
+                        .withValues(alpha: 0.14),
+                    foregroundColor: WoofCareColors.floatingActionIcons,
+                  ),
+                  onPressed: _openSearchSheet,
+                  icon: const Icon(Icons.add_rounded, size: 30),
+                ),
+                const SizedBox(width: 8),
+                WoofCareProfileAvatar(
+                  onTap: () => Navigator.pushNamed(context, "/profile"),
+                ),
+              ],
             ),
-            backgroundColor: WoofCareColors.secondaryBackground,
-            builder: (context) {
-              return DraggableScrollableSheet(
-                initialChildSize: 0.6,
-                minChildSize: 0.4,
-                maxChildSize: 0.9,
-                expand: false,
-                builder: (context, scrollController) {
-                  return const SearchBottomSheet();
+            Expanded(
+              child: StreamBuilder<QuerySnapshot>(
+                stream:
+                    FIRESTORE
+                        .collection("conversations")
+                        .where("participants", arrayContains: profile.name)
+                        .snapshots(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(
+                      child: CircularProgressIndicator(
+                        color: WoofCareColors.buttonColor,
+                      ),
+                    );
+                  }
+
+                  if (snapshot.hasError) {
+                    return Center(
+                      child: Text(
+                        "Unable to load conversations",
+                        style: TextStyle(
+                          color: WoofCareColors.errorMessageColor,
+                        ),
+                      ),
+                    );
+                  }
+
+                  final conversations =
+                      (snapshot.data?.docs ?? []).where((conversation) {
+                        final participant = _participantName(conversation);
+                        return _query.isEmpty ||
+                            participant.toLowerCase().contains(_query);
+                      }).toList();
+
+                  if (conversations.isEmpty) {
+                    return WoofCareEmptyState(
+                      icon: Icons.chat_bubble_outline,
+                      title: "No Conversations Yet",
+                      message: "Start a new chat to coordinate help.",
+                      action: CustomButton(
+                        text: "New Chat",
+                        icon: Icons.add,
+                        margin: 0,
+                        verticalPadding: 14,
+                        onTap: _openSearchSheet,
+                      ),
+                    );
+                  }
+
+                  return ListView.separated(
+                    padding: const EdgeInsets.only(bottom: 124),
+                    itemCount: conversations.length,
+                    separatorBuilder:
+                        (context, index) => const SizedBox.shrink(),
+                    itemBuilder: (context, index) {
+                      final conversation = conversations[index];
+                      final participant = _participantName(conversation);
+
+                      return _ConversationRow(
+                        name: participant,
+                        lastMessage: getLastConversationMessage(conversation),
+                        placeholderIndex: index,
+                        onTap: () {
+                          Navigator.pushNamed(
+                            context,
+                            '/chat',
+                            arguments: {
+                              'chatID': conversation.id,
+                              'photoID': index,
+                              'participant': participant,
+                            },
+                          );
+                        },
+                      );
+                    },
+                  );
                 },
-              );
-            },
-          );
-        },
-        child: const Icon(Icons.add, color: Colors.white, size: 28),
+              ),
+            ),
+          ],
+        ),
       ),
-      body: Stack(
-        children: [
-          // Background patterns
-          Align(
-            alignment: Alignment.topLeft,
-            child: Opacity(
-              opacity: 0.6,
-              child: Image.asset(
-                "assets/images/patterns/BigPawPattern.png",
-                width: 200,
-              ),
-            ),
-          ),
-          Align(
-            alignment: Alignment.bottomRight,
-            child: Opacity(
-              opacity: 0.6,
-              child: Image.asset(
-                "assets/images/patterns/SmallPawPattern.png",
-                width: 150,
-              ),
-            ),
-          ),
+    );
+  }
 
-          // Content
-          Column(
-            children: [
-              Expanded(
-                child: StreamBuilder<QuerySnapshot>(
-                  stream:
-                      FIRESTORE
-                          .collection("conversations")
-                          .where("participants", arrayContains: profile.name)
-                          .snapshots(),
-                  builder: (
-                    BuildContext context,
-                    AsyncSnapshot<QuerySnapshot> snapshot,
-                  ) {
-                    if (snapshot.hasData) {
-                      final List<QueryDocumentSnapshot> conversationSnapshots =
-                          snapshot.data!.docs;
+  String _participantName(QueryDocumentSnapshot conversation) {
+    final data = conversation.data() as Map<String, dynamic>?;
+    final participantsData = data?['participants'];
+    final participants = participantsData is List ? participantsData : const [];
 
-                      if (conversationSnapshots.isNotEmpty) {
-                        return ListView.separated(
-                          padding: const EdgeInsets.all(16),
-                          itemCount: conversationSnapshots.length,
-                          separatorBuilder:
-                              (context, index) => const SizedBox(height: 12),
-                          itemBuilder: (context, index) {
-                            // Safely get participants list with null and bounds checking
-                            final dynamic participantsData = 
-                                conversationSnapshots[index]['participants'];
-                            final List participants = participantsData is List
-                                ? participantsData
-                                : <String>[];
-                            
-                            // Find the other participant (not the current user)
-                            String participantName = "Unknown";
-                            if (participants.length > 1) {
-                              // If first participant is current user, get second, otherwise get first
-                              participantName = participants[0] == profile.name
-                                  ? participants[1].toString()
-                                  : participants[0].toString();
-                            } else if (participants.length == 1) {
-                              // Edge case: only one participant (shouldn't happen normally)
-                              participantName = participants[0] == profile.name
-                                  ? "Unknown"
-                                  : participants[0].toString();
-                            }
+    if (participants.length > 1) {
+      return participants[0] == profile.name
+          ? participants[1].toString()
+          : participants[0].toString();
+    }
 
-                            return Container(
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(16),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.05),
-                                    blurRadius: 8,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ],
-                              ),
-                              child: Material(
-                                color: Colors.transparent,
-                                child: InkWell(
-                                  borderRadius: BorderRadius.circular(16),
-                                  onTap: () {
-                                    Navigator.pushNamed(
-                                      context,
-                                      '/chat',
-                                      arguments: {
-                                        'chatID':
-                                            conversationSnapshots[index].id,
-                                        'photoID': index,
-                                        'participant': participantName,
-                                      },
-                                    );
-                                  },
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(12.0),
-                                    child: Row(
-                                      children: [
-                                        GestureDetector(
-                                          onTap: () async {
-                                            final userProfile =
-                                                await Profile.fromName(
-                                                  participantName,
-                                                );
-                                            if (userProfile != null &&
-                                                context.mounted) {
-                                              Navigator.push(
-                                                context,
-                                                MaterialPageRoute(
-                                                  builder:
-                                                      (context) => ProfilePage(
-                                                        user: userProfile,
-                                                      ),
-                                                ),
-                                              );
-                                            }
-                                          },
-                                          child: Container(
-                                            decoration: BoxDecoration(
-                                              shape: BoxShape.circle,
-                                              border: Border.all(
-                                                color:
-                                                    WoofCareColors
-                                                        .primaryBackground,
-                                                width: 2,
-                                              ),
-                                            ),
-                                            child: CircleAvatar(
-                                              radius: 28,
-                                              backgroundImage: AssetImage(
-                                                "assets/images/placeholders/1.jpg",
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 16),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                participantName,
-                                                style: const TextStyle(
-                                                  color:
-                                                      WoofCareColors
-                                                          .primaryTextAndIcons,
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 16,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 4),
-                                              FutureBuilder<String>(
-                                                future: getLastConversationMessage(
-                                                  conversationSnapshots[index],
-                                                ),
-                                                builder: (context, snapshot) {
-                                                  if (snapshot
-                                                          .connectionState ==
-                                                      ConnectionState.waiting) {
-                                                    return const Text(
-                                                      "Loading...",
-                                                      style: TextStyle(
-                                                        color: Colors.grey,
-                                                        fontSize: 13,
-                                                      ),
-                                                    );
-                                                  }
-                                                  return Text(
-                                                    snapshot.data ??
-                                                        "No messages yet",
-                                                    style: TextStyle(
-                                                      color: WoofCareColors
-                                                          .primaryTextAndIcons
-                                                          .withValues(
-                                                            alpha: 0.7,
-                                                          ),
-                                                      fontSize: 13,
-                                                    ),
-                                                    maxLines: 1,
-                                                    overflow:
-                                                        TextOverflow.ellipsis,
-                                                  );
-                                                },
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.end,
-                                          children: [
-                                            Text(
-                                              "Now", // Placeholder for time
-                                              style: TextStyle(
-                                                color: WoofCareColors
-                                                    .primaryTextAndIcons
-                                                    .withValues(alpha: 0.5),
-                                                fontSize: 12,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 8),
-                                            const Icon(
-                                              Icons.arrow_forward_ios,
-                                              size: 14,
-                                              color:
-                                                  WoofCareColors
-                                                      .primaryBackground,
-                                            ),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
-                                  ),
+    if (participants.length == 1) {
+      return participants[0] == profile.name
+          ? "Unknown"
+          : participants[0].toString();
+    }
+
+    return "Unknown";
+  }
+}
+
+class _ConversationRow extends StatelessWidget {
+  final String name;
+  final Future<String> lastMessage;
+  final int placeholderIndex;
+  final VoidCallback onTap;
+
+  const _ConversationRow({
+    required this.name,
+    required this.lastMessage,
+    required this.placeholderIndex,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final imageIndex = (placeholderIndex % 8).clamp(0, 7);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+      child: Material(
+        color: WoofCareColors.offWhite,
+        elevation: 3,
+        shadowColor: WoofCareColors.cardShadow,
+        borderRadius: BorderRadius.circular(22),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(22),
+          onTap: onTap,
+          child: SizedBox(
+            height: 92,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 30,
+                    backgroundColor: WoofCareColors.backgroundElementColor,
+                    backgroundImage: AssetImage(
+                      "assets/images/placeholders/$imageIndex.jpg",
+                    ),
+                  ),
+                  const SizedBox(width: 18),
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: WoofCareColors.primaryTextAndIcons,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w800,
                                 ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 9,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: WoofCareColors.floatingActionIcons
+                                    .withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Text(
+                                "Chat",
+                                style: TextStyle(
+                                  color: WoofCareColors.floatingActionIcons,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        FutureBuilder<String>(
+                          future: lastMessage,
+                          builder: (context, snapshot) {
+                            return Text(
+                              snapshot.data ?? "No messages yet",
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Color(0xFF734C28),
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
                               ),
                             );
                           },
-                        );
-                      }
-                    }
-
-                    return Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.chat_bubble_outline,
-                            size: 64,
-                            color: WoofCareColors.primaryTextAndIcons
-                                .withValues(alpha: 0.3),
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            "No Conversations Yet",
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: WoofCareColors.primaryTextAndIcons
-                                  .withValues(alpha: 0.5),
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            "Start a new chat to connect!",
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: WoofCareColors.primaryTextAndIcons
-                                  .withValues(alpha: 0.4),
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -362,22 +324,25 @@ class SearchBottomSheet extends StatefulWidget {
 }
 
 class _SearchBottomSheetState extends State<SearchBottomSheet> {
-  TextEditingController searchController = TextEditingController();
+  final TextEditingController searchController = TextEditingController();
   List<String> searchResults = [];
   String? selectedUser;
 
+  @override
+  void dispose() {
+    searchController.dispose();
+    super.dispose();
+  }
+
   void searchUsers(String query) async {
     if (query.isEmpty) {
-      setState(() {
-        searchResults = [];
-      });
+      setState(() => searchResults = []);
       return;
     }
 
-    QuerySnapshot snapshot =
-        await FirebaseFirestore.instance.collection("users").get();
+    final snapshot = await FirebaseFirestore.instance.collection("users").get();
 
-    List<String> matches =
+    final matches =
         snapshot.docs
             .where(
               (user) => user["name"].toString().toLowerCase().contains(
@@ -387,70 +352,51 @@ class _SearchBottomSheetState extends State<SearchBottomSheet> {
             .map((user) => user["name"].toString())
             .toList();
 
-    setState(() {
-      searchResults = matches;
-    });
+    if (!mounted) return;
+    setState(() => searchResults = matches);
   }
 
-  void startChat(BuildContext context, String selectedUser) async {
-    QuerySnapshot snapshot =
+  Future<void> startChat(BuildContext context, String selectedUser) async {
+    final snapshot =
         await FirebaseFirestore.instance
             .collection('conversations')
             .where("participants", arrayContains: profile.name)
             .get();
 
-    var conversations = snapshot.docs.where((doc) {
-      List participants = doc["participants"];
+    final conversations = snapshot.docs.where((doc) {
+      final participants = doc["participants"] as List;
       return participants.contains(selectedUser);
     });
 
-    if (conversations.isEmpty) {
-      DocumentReference newConvo = await FirebaseFirestore.instance
-          .collection("conversations")
-          .add({
-            "messages": [],
-            "participants": [profile.name, selectedUser],
-          });
+    final chatID =
+        conversations.isEmpty
+            ? (await FirebaseFirestore.instance.collection("conversations").add(
+              {
+                "messages": [],
+                "participants": [profile.name, selectedUser],
+              },
+            )).id
+            : conversations.first.id;
 
-      if (context.mounted) {
-        Navigator.pop(context);
+    if (!context.mounted) return;
 
-        Navigator.pushNamed(
-          context,
-          '/chat',
-          arguments: {'chatID': newConvo.id, 'participant': selectedUser},
-        );
-      }
-    } else {
-      if (context.mounted) {
-        Navigator.pop(context);
-
-        Navigator.pushNamed(
-          context,
-          '/chat',
-          arguments: {
-            'chatID': conversations.first.id,
-            'participant': selectedUser,
-          },
-        );
-      }
-    }
-  }
-
-  void selectUser(String user) {
-    setState(() {
-      selectedUser = user; // Update selected user
-    });
+    Navigator.pop(context);
+    Navigator.pushNamed(
+      context,
+      '/chat',
+      arguments: {'chatID': chatID, 'participant': selectedUser},
+    );
   }
 
   void addUser() {
-    if (selectedUser != null) {
-      startChat(context, selectedUser!); // Start chat with selected user
-    } else {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Please select a user first!")));
+    if (selectedUser == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please select a user first")),
+      );
+      return;
     }
+
+    startChat(context, selectedUser!);
   }
 
   @override
@@ -458,124 +404,156 @@ class _SearchBottomSheetState extends State<SearchBottomSheet> {
     return Padding(
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom,
-      ), // Adjust for keyboard
+      ),
       child: Container(
-        padding: EdgeInsets.all(16),
-        height: 400,
+        height: 460,
+        padding: const EdgeInsets.fromLTRB(18, 14, 18, 18),
+        decoration: const BoxDecoration(
+          color: WoofCareColors.secondaryBackground,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
         child: Column(
           children: [
             Container(
               width: 50,
               height: 5,
               decoration: BoxDecoration(
-                color: Color(0xFFA66E38),
+                color: WoofCareColors.buttonColor,
                 borderRadius: BorderRadius.circular(10),
               ),
-            ), //
-            SizedBox(height: 16),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              "New conversation",
+              style: TextStyle(
+                color: WoofCareColors.primaryTextAndIcons,
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 14),
             TextField(
-              style: TextStyle(fontSize: 16, color: Color(0xFF3F2917)),
-              cursorColor: Color(0xFF3F2917),
+              controller: searchController,
               maxLines: 1,
               maxLength: 100,
-              controller: searchController,
+              style: const TextStyle(
+                fontSize: 16,
+                color: WoofCareColors.primaryTextAndIcons,
+              ),
+              cursorColor: WoofCareColors.primaryTextAndIcons,
               decoration: InputDecoration(
-                constraints: BoxConstraints(maxHeight: 60),
-                fillColor: Color(0xFFCAB096),
-                hintText: "Find User...",
-                hintStyle: TextStyle(fontSize: 16, color: Color(0xFF3F2917)),
-                alignLabelWithHint: true,
-                prefixIcon: Icon(Icons.search),
-                prefixIconColor: Color(0xFF3F2917),
-                prefixIconConstraints: BoxConstraints(minWidth: 40),
+                counterText: '',
+                constraints: const BoxConstraints(maxHeight: 60),
+                filled: true,
+                fillColor: WoofCareColors.offWhite,
+                hintText: "Find user",
+                hintStyle: TextStyle(
+                  fontSize: 16,
+                  color: WoofCareColors.primaryTextAndIcons.withValues(
+                    alpha: 0.55,
+                  ),
+                ),
+                prefixIcon: const Icon(Icons.search),
+                prefixIconColor: WoofCareColors.primaryTextAndIcons,
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(24),
+                  borderRadius: BorderRadius.circular(18),
+                  borderSide: BorderSide.none,
                 ),
                 focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(24),
-                  borderSide: BorderSide(color: Color(0xFFCAB096)),
+                  borderRadius: BorderRadius.circular(18),
+                  borderSide: const BorderSide(
+                    color: WoofCareColors.buttonColor,
+                  ),
                 ),
                 suffixIcon:
                     searchController.text.isNotEmpty
                         ? IconButton(
-                          icon: Icon(Icons.clear),
+                          icon: const Icon(Icons.clear),
                           onPressed: () {
                             searchController.clear();
-                            setState(() {
-                              searchResults = [];
-                            });
+                            setState(() => searchResults = []);
                           },
                         )
                         : null,
-                contentPadding: EdgeInsets.symmetric(vertical: 8),
-                suffixIconColor: Color(0xFF3F2917),
+                suffixIconColor: WoofCareColors.primaryTextAndIcons,
               ),
               onChanged: searchUsers,
             ),
-            SizedBox(height: 12),
+            const SizedBox(height: 12),
             Expanded(
               child:
                   searchResults.isEmpty
-                      ? Center(
+                      ? const Center(
                         child: Text(
                           "No users found",
                           style: TextStyle(
-                            color: Color(0xFFA66E38),
-                            fontSize: 24,
+                            color: WoofCareColors.primaryTextAndIcons,
+                            fontSize: 16,
                           ),
                         ),
                       )
                       : ListView.builder(
                         itemCount: searchResults.length,
                         itemBuilder: (context, index) {
-                          bool isSelected =
-                              searchResults[index] == selectedUser;
+                          final user = searchResults[index];
+                          final isSelected = user == selectedUser;
+
                           return Container(
-                            margin: const EdgeInsets.all(8),
+                            margin: const EdgeInsets.symmetric(vertical: 6),
                             decoration: BoxDecoration(
                               color:
                                   isSelected
-                                      ? Color(0xFFFEE7CB)
-                                      : Color(0xFFF7FFF7),
+                                      ? WoofCareColors.offWhite
+                                      : WoofCareColors.offWhite.withValues(
+                                        alpha: 0.88,
+                                      ),
                               border: Border.all(
                                 color:
                                     isSelected
-                                        ? const Color(0xFFFF926C)
-                                        : Color(0xFFF7FFF7),
+                                        ? WoofCareColors.floatingActionIcons
+                                        : WoofCareColors.offWhite,
                                 width: 2,
                               ),
-                              borderRadius: BorderRadius.circular(24),
+                              borderRadius: BorderRadius.circular(20),
                             ),
                             child: ListTile(
                               leading: CircleAvatar(
-                                backgroundColor: Color(0xFFA66E38),
+                                backgroundColor:
+                                    isSelected
+                                        ? WoofCareColors.floatingActionIcons
+                                        : WoofCareColors.buttonColor,
                                 child: Icon(
                                   Icons.person,
                                   color:
                                       isSelected
-                                          ? Color(0xFFFEE7CB)
-                                          : Color(0xFFF7FFF7),
+                                          ? WoofCareColors.secondaryBackground
+                                          : WoofCareColors.offWhite,
                                 ),
                               ),
                               trailing: Icon(
-                                Icons.arrow_forward_ios,
-                                color: Color(0xFFA66E38),
+                                isSelected
+                                    ? Icons.check_circle_rounded
+                                    : Icons.arrow_forward_ios_rounded,
+                                color:
+                                    isSelected
+                                        ? WoofCareColors.floatingActionIcons
+                                        : WoofCareColors.buttonColor,
                               ),
                               title: Text(
-                                searchResults[index],
+                                user,
                                 style: const TextStyle(
                                   fontSize: 16,
-                                  color: Color(0xFFA66E38),
+                                  color: WoofCareColors.primaryTextAndIcons,
                                 ),
                               ),
-                              onTap: () => selectUser(searchResults[index]),
+                              onTap: () => setState(() => selectedUser = user),
                             ),
                           );
                         },
                       ),
             ),
-            SizedBox(height: 16),
-            CustomButton(text: "Add User", onTap: addUser),
+            const SizedBox(height: 16),
+            CustomButton(text: "Add User", icon: Icons.add, onTap: addUser),
           ],
         ),
       ),

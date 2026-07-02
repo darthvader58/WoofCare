@@ -83,6 +83,9 @@ class _SignUpPageState extends State<SignUpPage> {
     if (_nameTextController.text.trim().isNotEmpty &&
         _phoneTextController.text.trim().isNotEmpty &&
         _dateOfBirthTextController.text.trim().isNotEmpty &&
+        _emailTextController.text.trim().isNotEmpty &&
+        _passwordTextController.text.trim().isNotEmpty &&
+        _passwordConfirmTextController.text.trim().isNotEmpty &&
         role.isNotEmpty) {
       if (passwordChecker()) {
         Auth.signup(
@@ -120,7 +123,7 @@ class _SignUpPageState extends State<SignUpPage> {
     } else {
       setState(() {
         _visible = true;
-        _errorTextController.text = "Fill out your name, birth date, and role";
+        _errorTextController.text = "Please complete every required field";
       });
 
       hideMessage();
@@ -175,21 +178,29 @@ class _SignUpPageState extends State<SignUpPage> {
         );
       },
     );
+    if (pickedDate == null) return;
+
     _dateOfBirthTextController.text = DateFormat(
       "yyyy-MM-dd",
-    ).format(pickedDate!);
+    ).format(pickedDate);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: WoofCareColors.primaryBackground,
-      resizeToAvoidBottomInset: false,
+      resizeToAvoidBottomInset: true,
       body: AuthBackground(
         child: Center(
           child: SingleChildScrollView(
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 25.0),
+              padding: EdgeInsets.fromLTRB(
+                25,
+                24,
+                25,
+                MediaQuery.viewInsetsOf(context).bottom + 24,
+              ),
               child: AuthContainer(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -309,7 +320,11 @@ class _SignUpPageState extends State<SignUpPage> {
 
                     const SizedBox(height: 20),
 
-                    CustomButton(text: "Sign up", onTap: signup),
+                    CustomButton(
+                      text: "Sign up",
+                      icon: Icons.person_add_alt_1,
+                      onTap: signup,
+                    ),
 
                     const SizedBox(height: 15),
 

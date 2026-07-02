@@ -32,7 +32,7 @@ class CustomTextField extends StatelessWidget {
     this.prefix,
     this.onSuffixTap,
     this.horizontalPadding = 12,
-    this.maxLines = 100,
+    this.maxLines = 1,
     this.minLines = 1,
     this.top = 0,
     this.bottom = 0,
@@ -47,41 +47,64 @@ class CustomTextField extends StatelessWidget {
         keyboardType: keyboardType,
         autofocus: autofocus,
         obscureText: obscureText,
-        style: theme.textTheme.bodyMedium!.copyWith(color: Colors.black),
+        style: theme.textTheme.bodyMedium!.copyWith(
+          color: WoofCareColors.primaryTextAndIcons,
+          fontSize: 15,
+          height: 1.25,
+        ),
         onTap: onTap,
         decoration: InputDecoration(
           isDense: true,
-          contentPadding: EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+          contentPadding: const EdgeInsets.symmetric(
+            vertical: 14,
+            horizontal: 16,
+          ),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16.0),
-            borderSide: const BorderSide(
-              color: Color.fromARGB(255, 22, 16, 16),
+            borderSide: BorderSide(
+              color: WoofCareColors.primaryTextAndIcons.withValues(alpha: 0.18),
+            ),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16.0),
+            borderSide: BorderSide(
+              color: WoofCareColors.primaryTextAndIcons.withValues(alpha: 0.12),
             ),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16.0),
             borderSide: const BorderSide(
-              color: WoofCareColors.primaryTextAndIcons,
+              color: WoofCareColors.buttonColor,
+              width: 1.5,
             ),
           ),
-          fillColor: WoofCareColors.textfieldBackground.withValues(alpha: 0.3),
+          fillColor: WoofCareColors.offWhite.withValues(alpha: 0.78),
           filled: true,
 
           //make it so no icon space is taken if no icon is provided
           suffixIcon:
               suffix != null
                   ? (onSuffixTap != null
-                      ? IconButton(icon: Icon(suffix), onPressed: onSuffixTap)
-                      : Icon(suffix))
+                      ? IconButton(
+                        icon: Icon(
+                          suffix,
+                          color: WoofCareColors.primaryTextAndIcons,
+                        ),
+                        onPressed: onSuffixTap,
+                      )
+                      : Icon(suffix, color: WoofCareColors.primaryTextAndIcons))
                   : null,
-          prefixIcon: prefix != null ? Icon(prefix) : null,
+          prefixIcon:
+              prefix != null
+                  ? Icon(prefix, color: WoofCareColors.primaryTextAndIcons)
+                  : null,
 
           //hint style
           hintText: hintText,
           hintStyle: TextStyle(
-            color: WoofCareColors.primaryTextAndIcons.withValues(alpha: 0.5),
-            fontWeight: FontWeight.w200,
-            fontSize: 13,
+            color: WoofCareColors.primaryTextAndIcons.withValues(alpha: 0.55),
+            fontWeight: FontWeight.w400,
+            fontSize: 14,
           ),
         ),
         maxLines: maxLines,
