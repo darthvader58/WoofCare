@@ -1,1 +1,35 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"woofcare-a9fac","appId":"1:506976961145:android:b19e9a2b082f7b95240aa8","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"woofcare-a9fac","configurations":{"android":"1:506976961145:android:b19e9a2b082f7b95240aa8"}}}}}}
+{
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "emulators": {
+    "firestore": {
+      "port": 8280
+    },
+    "ui": {
+      "enabled": true,
+      "port": 4000
+    },
+    "singleProjectMode": true
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "woofcare-a9fac",
+          "appId": "1:506976961145:android:b19e9a2b082f7b95240aa8",
+          "fileOutput": "android/app/google-services.json"
+        }
+      }
+    },
+    "dart": {
+      "lib/firebase_options.dart": {
+        "projectId": "woofcare-a9fac",
+        "configurations": {
+          "android": "1:506976961145:android:b19e9a2b082f7b95240aa8"
+        }
+      }
+    }
+  }
+}
