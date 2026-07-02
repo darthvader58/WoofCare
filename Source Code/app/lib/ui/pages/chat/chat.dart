@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:woofcare/config/colors.dart';
 import 'package:woofcare/models/profile.dart';
+import 'package:woofcare/services/location_privacy.dart';
 import 'package:woofcare/ui/pages/profile/profile.dart';
 
 import '/config/constants.dart';
@@ -168,6 +169,10 @@ class _ChatPageState extends State<ChatPage> {
         bottom: false,
         child: Column(
           children: [
+            _ReportLocationConsentPanel(
+              chatId: chatID,
+              conversationData: conversationData,
+            ),
             _Messages(chatId: chatID, conversationData: conversationData),
             _ChatComposer(
               controller: _messageController,
@@ -249,6 +254,405 @@ class _ChatPageState extends State<ChatPage> {
         });
 
     _messageController.clear();
+  }
+}
+
+class _ReportLocationConsentPanel extends StatefulWidget {
+  final String chatId;
+  final Map<String, dynamic> conversationData;
+
+  const _ReportLocationConsentPanel({
+    required this.chatId,
+    required this.conversationData,
+  });
+
+  @override
+  State<_ReportLocationConsentPanel> createState() =>
+      _ReportLocationConsentPanelState();
+}
+
+class _ReportLocationConsentPanelState
+    extends State<_ReportLocationConsentPanel> {
+  Future<_ReportLocationGrantContext?>? _grantContextFuture;
+  String? _grantContextKey;
+  bool _isGranting = false;
+  bool _isResolving = false;
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.conversationData['isReportChat'] != true) {
+      return const SizedBox.shrink();
+    }
+
+    final reportId = widget.conversationData['reportId']?.toString().trim();
+    final reporterName =
+        widget.conversationData['reporterName']?.toString().trim();
+    final requesterName =
+        widget.conversationData['requesterName']?.toString().trim();
+    final requesterUserId =
+        widget.conversationData['requesterUserId']?.toString().trim();
+
+    if (reportId == null ||
+        reportId.isEmpty ||
+        reporterName == null ||
+        reporterName.isEmpty ||
+        requesterName == null ||
+        requesterName.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final isReporter = profile.name == reporterName;
+    final isRequester = profile.name == requesterName;
+    if (!isReporter && !isRequester) {
+      return const SizedBox.shrink();
+    }
+
+    final contextKey =
+        '${widget.chatId}|$reportId|${requesterUserId ?? requesterName}';
+    if (_grantContextKey != contextKey) {
+      _grantContextKey = contextKey;
+      _grantContextFuture = _loadGrantContext(
+        chatId: widget.chatId,
+        reportId: reportId,
+        requesterUserId: requesterUserId,
+        isReporter: isReporter,
+        isRequester: isRequester,
+      );
+    }
+
+    return FutureBuilder<_ReportLocationGrantContext?>(
+      future: _grantContextFuture,
+      builder: (context, snapshot) {
+        final grantContext = snapshot.data;
+        if (grantContext == null) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const SizedBox.shrink();
+          }
+
+          return _LocationConsentShell(
+            icon: Icons.location_off_rounded,
+            title: 'Location sharing unavailable',
+            message:
+                'This chat cannot grant exact location access until the helper profile is available.',
+          );
+        }
+
+        return StreamBuilder<DocumentSnapshot>(
+          stream:
+              FIRESTORE
+                  .collection('report_location_grants')
+                  .doc(grantContext.grantDocumentId)
+                  .snapshots(),
+          builder: (context, grantSnapshot) {
+            final grantData =
+                grantSnapshot.data?.data() as Map<String, dynamic>?;
+            final grantUserId = grantData?['granteeUserId'];
+            final hasGrant =
+                grantSnapshot.data?.exists == true &&
+                grantData?['pathway'] == 'chat_consent' &&
+                grantData?['chatId'] == grantContext.chatId &&
+                grantUserId == grantContext.granteeUserId;
+
+            if (hasGrant) {
+              return _LocationConsentShell(
+                icon: Icons.verified_rounded,
+                title: 'Exact location shared',
+                message:
+                    grantContext.isRequester
+                        ? 'The reporter shared this report location with you.'
+                        : 'This helper can now access the exact report location.',
+                actionLabel:
+                    grantContext.isRequester ? 'View exact location' : null,
+                actionIcon: Icons.map_rounded,
+                busy: _isResolving,
+                onAction:
+                    grantContext.isRequester
+                        ? () => _showExactLocation(grantContext)
+                        : null,
+              );
+            }
+
+            if (grantContext.isReporter) {
+              return _LocationConsentShell(
+                icon: Icons.my_location_rounded,
+                title: 'Share exact location',
+                message:
+                    'Give only this helper access to the protected exact location for this report.',
+                actionLabel: 'Share',
+                actionIcon: Icons.lock_open_rounded,
+                busy: _isGranting,
+                onAction: () => _confirmAndGrant(grantContext),
+              );
+            }
+
+            return const _LocationConsentShell(
+              icon: Icons.lock_rounded,
+              title: 'Exact location hidden',
+              message:
+                  'Ask the reporter here if exact location access is needed.',
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<_ReportLocationGrantContext?> _loadGrantContext({
+    required String chatId,
+    required String reportId,
+    required String? requesterUserId,
+    required bool isReporter,
+    required bool isRequester,
+  }) async {
+    String? granteeUserId = requesterUserId;
+
+    if ((granteeUserId == null || granteeUserId.isEmpty) && isRequester) {
+      granteeUserId = profile.id;
+    }
+
+    if (granteeUserId == null || granteeUserId.trim().isEmpty) {
+      return null;
+    }
+
+    return _ReportLocationGrantContext(
+      chatId: chatId,
+      reportId: reportId,
+      granteeUserId: granteeUserId,
+      isReporter: isReporter,
+      isRequester: isRequester,
+    );
+  }
+
+  Future<void> _confirmAndGrant(
+    _ReportLocationGrantContext grantContext,
+  ) async {
+    final shouldGrant = await showDialog<bool>(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Share exact location?'),
+            content: const Text(
+              'Only this chat helper will be granted access. Your anonymous reporter display stays private.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Share'),
+              ),
+            ],
+          ),
+    );
+
+    if (shouldGrant != true || !mounted) return;
+
+    setState(() => _isGranting = true);
+
+    try {
+      await createExactLocationGrant(
+        reportId: grantContext.reportId,
+        granteeUserId: grantContext.granteeUserId,
+        pathway: 'chat_consent',
+        grantedBy: profile.id,
+        chatId: grantContext.chatId,
+      );
+
+      await FIRESTORE.collection('conversations').doc(grantContext.chatId).set({
+        'exactLocationShared': true,
+        'exactLocationSharedAt': FieldValue.serverTimestamp(),
+        'exactLocationSharedWithUserId': grantContext.granteeUserId,
+      }, SetOptions(merge: true));
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Unable to share location: $error')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isGranting = false);
+      }
+    }
+  }
+
+  Future<void> _showExactLocation(
+    _ReportLocationGrantContext grantContext,
+  ) async {
+    setState(() => _isResolving = true);
+
+    try {
+      final location = await fetchExactReportLocation(grantContext.reportId);
+
+      if (!mounted) return;
+
+      if (location == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Exact location is not available yet')),
+        );
+        return;
+      }
+
+      await showDialog<void>(
+        context: context,
+        builder:
+            (context) => AlertDialog(
+              title: const Text('Exact location'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Latitude: ${location.latitude.toStringAsFixed(6)}'),
+                  Text('Longitude: ${location.longitude.toStringAsFixed(6)}'),
+                ],
+              ),
+              actions: [
+                FilledButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Done'),
+                ),
+              ],
+            ),
+      );
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Unable to load exact location: $error')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isResolving = false);
+      }
+    }
+  }
+}
+
+class _LocationConsentShell extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String message;
+  final String? actionLabel;
+  final IconData? actionIcon;
+  final bool busy;
+  final VoidCallback? onAction;
+
+  const _LocationConsentShell({
+    required this.icon,
+    required this.title,
+    required this.message,
+    this.actionLabel,
+    this.actionIcon,
+    this.busy = false,
+    this.onAction,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(14, 12, 14, 0),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: WoofCareColors.secondaryBackground,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: WoofCareColors.buttonColor.withValues(alpha: 0.24),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: WoofCareColors.buttonColor.withValues(alpha: 0.14),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: WoofCareColors.buttonColor, size: 21),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: WoofCareColors.primaryTextAndIcons,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  message,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: WoofCareColors.mutedText.withValues(alpha: 0.86),
+                    fontSize: 12,
+                    height: 1.22,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (actionLabel != null && onAction != null) ...[
+            const SizedBox(width: 10),
+            FilledButton.icon(
+              style: FilledButton.styleFrom(
+                backgroundColor: WoofCareColors.buttonColor,
+                foregroundColor: WoofCareColors.offWhite,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                visualDensity: VisualDensity.compact,
+              ),
+              onPressed: busy ? null : onAction,
+              icon:
+                  busy
+                      ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                      : Icon(actionIcon, size: 18),
+              label: Text(
+                actionLabel!,
+                style: const TextStyle(fontWeight: FontWeight.w800),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ReportLocationGrantContext {
+  final String chatId;
+  final String reportId;
+  final String granteeUserId;
+  final bool isReporter;
+  final bool isRequester;
+
+  _ReportLocationGrantContext({
+    required this.chatId,
+    required this.reportId,
+    required this.granteeUserId,
+    required this.isReporter,
+    required this.isRequester,
+  });
+
+  String get grantDocumentId {
+    return '${reportId}_${granteeUserId}_chat_consent';
   }
 }
 
