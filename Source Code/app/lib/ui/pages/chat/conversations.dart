@@ -126,8 +126,12 @@ class _ConversationsPageState extends State<ConversationsPage> {
                     );
                   }
 
+                  final now = DateTime.now();
                   final conversations =
                       (snapshot.data?.docs ?? []).where((conversation) {
+                        if (_isExpiredAnonymousChat(conversation, now)) {
+                          return false;
+                        }
                         final participant = _participantName(conversation);
                         return _query.isEmpty ||
                             participant.toLowerCase().contains(_query);
@@ -186,6 +190,23 @@ class _ConversationsPageState extends State<ConversationsPage> {
 
   String _participantName(QueryDocumentSnapshot conversation) {
     final data = conversation.data() as Map<String, dynamic>?;
+
+    if (data?['isReportChat'] == true) {
+      final reporterName = data?['reporterName']?.toString();
+      final requesterName = data?['requesterName']?.toString();
+
+      if (profile.name == reporterName) {
+        return data?['requesterDisplayName']?.toString() ?? 'Anonymous User';
+      }
+
+      if (profile.name == requesterName) {
+        return data?['reporterDisplayName']?.toString() ??
+            (data?['anonymousReporter'] == true
+                ? 'Anonymous Reporter'
+                : reporterName ?? 'Reporter');
+      }
+    }
+
     final participantsData = data?['participants'];
     final participants = participantsData is List ? participantsData : const [];
 
@@ -202,6 +223,23 @@ class _ConversationsPageState extends State<ConversationsPage> {
     }
 
     return "Unknown";
+  }
+
+  bool _isExpiredAnonymousChat(
+    QueryDocumentSnapshot conversation,
+    DateTime now,
+  ) {
+    final data = conversation.data() as Map<String, dynamic>?;
+    if (data?['isReportChat'] != true || data?['anonymousReporter'] != true) {
+      return false;
+    }
+
+    final expiresAt = data?['expiresAt'];
+    if (expiresAt is! Timestamp) {
+      return false;
+    }
+
+    return expiresAt.toDate().isBefore(now);
   }
 }
 

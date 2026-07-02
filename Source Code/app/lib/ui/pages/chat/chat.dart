@@ -44,6 +44,26 @@ class _ChatPageState extends State<ChatPage> {
     chatID = arguments['chatID'];
     final String participant = arguments['participant'];
 
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FIRESTORE.collection("conversations").doc(chatID).snapshots(),
+      builder: (context, snapshot) {
+        final data = snapshot.data?.data() as Map<String, dynamic>? ?? {};
+        return _buildChatScaffold(context, participant, data);
+      },
+    );
+  }
+
+  Widget _buildChatScaffold(
+    BuildContext context,
+    String participant,
+    Map<String, dynamic> conversationData,
+  ) {
+    final displayParticipant = _displayParticipant(
+      participant,
+      conversationData,
+    );
+    final profileLookupName = _profileLookupName(participant, conversationData);
+
     return Scaffold(
       backgroundColor: WoofCareColors.offWhite,
       appBar: AppBar(
@@ -55,40 +75,60 @@ class _ChatPageState extends State<ChatPage> {
           color: WoofCareColors.primaryTextAndIcons,
           size: 26,
         ),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: IconButton.filledTonal(
-              style: IconButton.styleFrom(
-                backgroundColor: WoofCareColors.floatingActionIcons.withValues(
-                  alpha: 0.14,
-                ),
-                foregroundColor: WoofCareColors.floatingActionIcons,
-              ),
-              icon: const Icon(Icons.phone_rounded),
-              onPressed: () {},
-            ),
-          ),
-        ],
+        actions:
+            _isAnonymousDisplay(displayParticipant)
+                ? []
+                : [
+                  Padding(
+                    padding: const EdgeInsets.only(right: 12),
+                    child: IconButton.filledTonal(
+                      style: IconButton.styleFrom(
+                        backgroundColor: WoofCareColors.floatingActionIcons
+                            .withValues(alpha: 0.14),
+                        foregroundColor: WoofCareColors.floatingActionIcons,
+                      ),
+                      icon: const Icon(Icons.phone_rounded),
+                      onPressed: () {},
+                    ),
+                  ),
+                ],
         title: GestureDetector(
-          onTap: () async {
-            final userProfile = await Profile.fromName(participant);
-            if (userProfile != null && context.mounted) {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => ProfilePage(user: userProfile),
-                ),
-              );
-            }
-          },
+          onTap:
+              profileLookupName == null
+                  ? null
+                  : () async {
+                    final userProfile = await Profile.fromName(
+                      profileLookupName,
+                    );
+                    if (userProfile != null && context.mounted) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => ProfilePage(user: userProfile),
+                        ),
+                      );
+                    }
+                  },
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const CircleAvatar(
-                backgroundColor: WoofCareColors.backgroundElementColor,
+              CircleAvatar(
+                backgroundColor:
+                    _isAnonymousDisplay(displayParticipant)
+                        ? WoofCareColors.buttonColor
+                        : WoofCareColors.backgroundElementColor,
                 radius: 22,
-                backgroundImage: AssetImage("assets/images/placeholders/1.jpg"),
+                backgroundImage:
+                    _isAnonymousDisplay(displayParticipant)
+                        ? null
+                        : const AssetImage("assets/images/placeholders/1.jpg"),
+                child:
+                    _isAnonymousDisplay(displayParticipant)
+                        ? const Icon(
+                          Icons.visibility_off_rounded,
+                          color: WoofCareColors.offWhite,
+                        )
+                        : null,
               ),
               const SizedBox(width: 10),
               Flexible(
@@ -97,7 +137,7 @@ class _ChatPageState extends State<ChatPage> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      participant,
+                      displayParticipant,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -128,7 +168,7 @@ class _ChatPageState extends State<ChatPage> {
         bottom: false,
         child: Column(
           children: [
-            _Messages(chatId: chatID),
+            _Messages(chatId: chatID, conversationData: conversationData),
             _ChatComposer(
               controller: _messageController,
               sendDisabled: _isSendButtonDisabled,
@@ -138,6 +178,61 @@ class _ChatPageState extends State<ChatPage> {
         ),
       ),
     );
+  }
+
+  String _displayParticipant(
+    String fallback,
+    Map<String, dynamic> conversationData,
+  ) {
+    if (conversationData['isReportChat'] == true) {
+      final reporterName = conversationData['reporterName']?.toString();
+      final requesterName = conversationData['requesterName']?.toString();
+
+      if (profile.name == reporterName) {
+        return conversationData['requesterDisplayName']?.toString() ??
+            'Anonymous User';
+      }
+
+      if (profile.name == requesterName) {
+        return conversationData['reporterDisplayName']?.toString() ??
+            (conversationData['anonymousReporter'] == true
+                ? 'Anonymous Reporter'
+                : reporterName ?? fallback);
+      }
+    }
+
+    return fallback;
+  }
+
+  String? _profileLookupName(
+    String fallback,
+    Map<String, dynamic> conversationData,
+  ) {
+    final displayName = _displayParticipant(fallback, conversationData);
+    if (_isAnonymousDisplay(displayName)) return null;
+
+    if (conversationData['isReportChat'] == true) {
+      final reporterName = conversationData['reporterName']?.toString();
+      final requesterName = conversationData['requesterName']?.toString();
+
+      if (profile.name == reporterName) {
+        return conversationData['requesterProfileShared'] == true
+            ? requesterName
+            : null;
+      }
+
+      if (profile.name == requesterName) {
+        return conversationData['anonymousReporter'] == true
+            ? null
+            : reporterName;
+      }
+    }
+
+    return fallback;
+  }
+
+  bool _isAnonymousDisplay(String value) {
+    return value == 'Anonymous Reporter' || value == 'Anonymous User';
   }
 
   void submit(BuildContext context) {
@@ -159,8 +254,9 @@ class _ChatPageState extends State<ChatPage> {
 
 class _Messages extends StatelessWidget {
   final String chatId;
+  final Map<String, dynamic> conversationData;
 
-  const _Messages({required this.chatId});
+  const _Messages({required this.chatId, required this.conversationData});
 
   @override
   Widget build(BuildContext context) {
@@ -204,12 +300,13 @@ class _Messages extends StatelessWidget {
         final List<QueryDocumentSnapshot> docs = snapshot.data!.docs;
         final List<_Message> messages = [];
         for (final QueryDocumentSnapshot doc in docs) {
+          final sender = doc.get("sender").toString();
           messages.add(
             _Message(
               text: doc.get("text"),
-              sender: doc.get("sender"),
+              sender: _senderDisplayName(sender),
               time: doc.get("time"),
-              isSelf: profile.name == doc.get("sender"),
+              isSelf: profile.name == sender,
             ),
           );
         }
@@ -223,6 +320,27 @@ class _Messages extends StatelessWidget {
         );
       },
     );
+  }
+
+  String _senderDisplayName(String sender) {
+    if (conversationData['isReportChat'] != true) {
+      return sender;
+    }
+
+    final reporterName = conversationData['reporterName']?.toString();
+    final requesterName = conversationData['requesterName']?.toString();
+
+    if (sender == reporterName &&
+        conversationData['anonymousReporter'] == true) {
+      return 'Anonymous Reporter';
+    }
+
+    if (sender == requesterName &&
+        conversationData['requesterProfileShared'] != true) {
+      return 'Anonymous User';
+    }
+
+    return sender;
   }
 }
 
