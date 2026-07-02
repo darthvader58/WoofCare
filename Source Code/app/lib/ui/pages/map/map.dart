@@ -11,6 +11,8 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:woofcare/config/colors.dart';
 import 'package:woofcare/config/constants.dart';
 import 'package:woofcare/config/map_style.dart';
+import 'package:woofcare/services/location_privacy.dart';
+import 'package:woofcare/services/report_location_service.dart';
 import 'package:woofcare/ui/widgets/app_chrome.dart';
 
 import '/ui/pages/export.dart';
@@ -217,6 +219,15 @@ class _MapPageState extends State<MapPage> {
                           _ReporterCard(markerData: markerData),
                         ],
 
+                        if (isReport) ...[
+                          const SizedBox(height: 18),
+                          _ExactLocationAccessPanel(
+                            markerData: markerData,
+                            canAccept: _canAcceptReport(markerData),
+                            onAccept: () => _acceptReport(markerData),
+                          ),
+                        ],
+
                         const SizedBox(height: 18),
                       ],
                     ),
@@ -354,8 +365,10 @@ class _MapPageState extends State<MapPage> {
       'anonymousReporter': isAnonymous,
       'reporterName': reporterName,
       'reporterDisplayName': reporterDisplayName,
+      'reporterUserId': markerData['userReported'],
       'requesterName': profile.name,
       'requesterDisplayName': requesterDisplayName,
+      'requesterUserId': profile.id,
       'requesterProfileShared': profile.shareProfile,
       if (isAnonymous && existingData?['expiresAt'] == null)
         'expiresAt': Timestamp.fromDate(
@@ -394,6 +407,51 @@ class _MapPageState extends State<MapPage> {
 
     if (await canLaunchUrl(maps)) {
       await launchUrl(maps, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  bool _canAcceptReport(Map<String, dynamic> markerData) {
+    return markerData['type'] == 'report' &&
+        markerData['userReported'] != profile.id &&
+        markerData['exactLocationVisible'] != true &&
+        profile.accountType == 'organization' &&
+        profile.verified;
+  }
+
+  Future<void> _acceptReport(Map<String, dynamic> markerData) async {
+    final reportId = markerData['id']?.toString();
+    if (reportId == null || reportId.isEmpty) return;
+
+    try {
+      final exactLocation = await ReportLocationService.acceptReport(
+        reportId: reportId,
+        reporterId: markerData['userReported']?.toString() ?? '',
+      );
+
+      if (!mounted) return;
+      setState(() {
+        markerData['latitude'] = exactLocation.latitude;
+        markerData['longitude'] = exactLocation.longitude;
+        markerData['exactLocationVisible'] = true;
+      });
+
+      await _mapController?.animateCamera(
+        CameraUpdate.newLatLng(
+          LatLng(exactLocation.latitude, exactLocation.longitude),
+        ),
+      );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Report accepted. Exact location unlocked.'),
+        ),
+      );
+    } on ReportLocationGrantException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
     }
   }
 
@@ -444,21 +502,23 @@ class _MapPageState extends State<MapPage> {
                             position: currentPosition!,
                           ),
                           for (final i in _visibleMarkerIndexes())
-                            Marker(
-                              markerId: MarkerId(markers[i]["id"]),
-                              icon:
-                                  markers[i]["selected"]
-                                      ? markers[i]["selectIcon"]
-                                      : markers[i]["icon"],
-                              position: LatLng(
-                                markers[i]["latitude"],
-                                markers[i]["longitude"],
+                            if (_shouldRenderMapMarker(markers[i]))
+                              Marker(
+                                markerId: MarkerId(markers[i]["id"]),
+                                icon:
+                                    markers[i]["selected"]
+                                        ? markers[i]["selectIcon"]
+                                        : markers[i]["icon"],
+                                position: LatLng(
+                                  markers[i]["latitude"],
+                                  markers[i]["longitude"],
+                                ),
+                                onTap: () {
+                                  _handleMarkerTap(i);
+                                },
                               ),
-                              onTap: () {
-                                _handleMarkerTap(i);
-                              },
-                            ),
                         },
+                        circles: _reportPrivacyCircles(),
                       ),
             ),
             Positioned(
@@ -499,6 +559,50 @@ class _MapPageState extends State<MapPage> {
   bool _markerMatchesFilter(Map<String, dynamic> marker) {
     if (selectedMarkerType == 'all') return true;
     return marker['type'] == selectedMarkerType;
+  }
+
+  bool _shouldRenderMapMarker(Map<String, dynamic> marker) {
+    return true;
+  }
+
+  Set<Circle> _reportPrivacyCircles() {
+    final circles = <Circle>{};
+
+    for (final marker in markers) {
+      if (marker['type'] != 'report' ||
+          !_markerMatchesFilter(marker) ||
+          marker['exactLocationVisible'] == true) {
+        continue;
+      }
+
+      final latitude = marker['fuzzedLatitude'];
+      final longitude = marker['fuzzedLongitude'];
+      if (latitude is! num || longitude is! num) continue;
+
+      final radius = marker['locationPrivacyRadiusMeters'];
+      final radiusMeters =
+          radius is num
+              ? radius.toDouble()
+              : reportLocationFuzzRadiusMeters.toDouble();
+      final center = LatLng(latitude.toDouble(), longitude.toDouble());
+
+      circles.add(
+        Circle(
+          circleId: CircleId('report-zone-${marker['id']}'),
+          center: center,
+          radius: radiusMeters,
+          fillColor: WoofCareColors.buttonColor.withValues(
+            alpha: marker['selected'] == true ? 0.13 : 0.07,
+          ),
+          strokeColor: WoofCareColors.buttonColor.withValues(
+            alpha: marker['selected'] == true ? 0.42 : 0.28,
+          ),
+          strokeWidth: marker['selected'] == true ? 3 : 2,
+        ),
+      );
+    }
+
+    return circles;
   }
 
   Future<void> fetchLocationUpdates(BuildContext context) async {
@@ -714,14 +818,27 @@ class _MapPageState extends State<MapPage> {
       }
     }
 
-    for (QueryDocumentSnapshot doc
-        in (await FIRESTORE.collection("reports").get()).docs) {
+    List<QueryDocumentSnapshot> reportDocs;
+    try {
+      reportDocs = (await FIRESTORE.collection("reports").get()).docs;
+    } on FirebaseException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Unable to load reports: ${error.code}')),
+        );
+      }
+      reportDocs = [];
+    }
+
+    for (QueryDocumentSnapshot doc in reportDocs) {
       final data = doc.data() as Map<String, dynamic>?;
 
-      // TODO: Expiry Date and Other Fields
-      if (data != null &&
-          data['latitude'] != null &&
-          data['longitude'] != null) {
+      final publicLocation =
+          data == null
+              ? null
+              : ReportLocationService.publicDisplayLocation(data);
+
+      if (data != null && publicLocation != null) {
         final isAnonymous = data['isAnonymous'] == true;
         final shareReporterPhone =
             !isAnonymous && data['shareReporterPhone'] == true;
@@ -730,6 +847,17 @@ class _MapPageState extends State<MapPage> {
             shareReporterPhone ? data['reporterPhone']?.toString() : null;
         String? reporterEmail = data['reporterEmail']?.toString();
         final reporterId = data['userID']?.toString();
+        final exactLocation =
+            profile.accountType == 'organization' && profile.verified
+                ? await ReportLocationService.fetchGrantedLocation(
+                  reportId: doc.id,
+                  organizationId: profile.id,
+                )
+                : null;
+        final displayLatitude =
+            exactLocation?.latitude ?? publicLocation.latitude;
+        final displayLongitude =
+            exactLocation?.longitude ?? publicLocation.longitude;
 
         if ((reporterName == null ||
                 (shareReporterPhone && reporterPhone == null)) &&
@@ -753,8 +881,20 @@ class _MapPageState extends State<MapPage> {
 
         Map<String, dynamic> marker = {
           'id': doc.id,
-          'latitude': (data['latitude'] as num).toDouble(),
-          'longitude': (data['longitude'] as num).toDouble(),
+          'latitude': displayLatitude,
+          'longitude': displayLongitude,
+          'fuzzedLatitude':
+              data['fuzzedLatitude'] is num
+                  ? (data['fuzzedLatitude'] as num).toDouble()
+                  : publicLocation.latitude,
+          'fuzzedLongitude':
+              data['fuzzedLongitude'] is num
+                  ? (data['fuzzedLongitude'] as num).toDouble()
+                  : publicLocation.longitude,
+          'exactLocationVisible': exactLocation != null,
+          'locationPrivacyRadiusMeters':
+              data['locationPrivacyRadiusMeters'] ??
+              reportLocationFuzzRadiusMeters,
           'title': data['title'] ?? data['name'] ?? 'Unknown report',
           'name': data['title'] ?? data['name'] ?? 'Unknown report',
           'description': data['description'] ?? '',
@@ -828,7 +968,7 @@ class _MapPageState extends State<MapPage> {
     _locationSubscription = locationController.onLocationChanged.listen((
       currentLocation,
     ) {
-      _updateCurrentPosition(currentLocation);
+      _updateCurrentPosition(currentLocation, moveCamera: false);
     });
   }
 
@@ -914,6 +1054,20 @@ class _MarkerMeta extends StatelessWidget {
               label: markerData['reporterName'].toString(),
               color: WoofCareColors.mutedText,
             ),
+          _InfoPill(
+            icon:
+                markerData['exactLocationVisible'] == true
+                    ? Icons.location_on_rounded
+                    : Icons.blur_on_rounded,
+            label:
+                markerData['exactLocationVisible'] == true
+                    ? 'Exact pin'
+                    : 'Approximate pin',
+            color:
+                markerData['exactLocationVisible'] == true
+                    ? WoofCareColors.buttonColor
+                    : WoofCareColors.mutedText,
+          ),
         ],
       );
     }
@@ -950,6 +1104,7 @@ class _MarkerActions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isReport = markerData['type'] == 'report';
+    final hasExactLocation = markerData['exactLocationVisible'] == true;
     final hasWebsite =
         !isReport && (markerData['website'] ?? '').toString().trim().isNotEmpty;
     final hasPhone =
@@ -960,11 +1115,12 @@ class _MarkerActions extends StatelessWidget {
         true;
 
     final actions = [
-      _MarkerActionButton(
-        icon: Icons.directions_rounded,
-        label: 'Directions',
-        onTap: onDirections,
-      ),
+      if (!isReport || hasExactLocation)
+        _MarkerActionButton(
+          icon: Icons.directions_rounded,
+          label: 'Directions',
+          onTap: onDirections,
+        ),
       if (hasPhone)
         _MarkerActionButton(
           icon: Icons.call_rounded,
@@ -1249,6 +1405,237 @@ class _ReporterCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _ExactLocationAccessPanel extends StatefulWidget {
+  final Map<String, dynamic> markerData;
+  final bool canAccept;
+  final Future<void> Function() onAccept;
+
+  const _ExactLocationAccessPanel({
+    required this.markerData,
+    required this.canAccept,
+    required this.onAccept,
+  });
+
+  @override
+  State<_ExactLocationAccessPanel> createState() =>
+      _ExactLocationAccessPanelState();
+}
+
+class _ExactLocationAccessPanelState extends State<_ExactLocationAccessPanel> {
+  bool _accepting = false;
+
+  Future<void> _accept() async {
+    setState(() {
+      _accepting = true;
+    });
+
+    try {
+      await widget.onAccept();
+    } finally {
+      if (mounted) {
+        setState(() {
+          _accepting = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isReporter = widget.markerData['userReported'] == profile.id;
+    final hasExactLocation = widget.markerData['exactLocationVisible'] == true;
+    final isOrganization = profile.accountType == 'organization';
+    final radius = widget.markerData['locationPrivacyRadiusMeters'];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: WoofCareColors.offWhite.withValues(alpha: 0.76),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: WoofCareColors.primaryTextAndIcons.withValues(alpha: 0.1),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    hasExactLocation
+                        ? Icons.location_on_rounded
+                        : Icons.privacy_tip_rounded,
+                    size: 20,
+                    color: WoofCareColors.buttonColor,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      hasExactLocation
+                          ? 'Exact location unlocked'
+                          : 'Approximate location',
+                      style: const TextStyle(
+                        color: WoofCareColors.primaryTextAndIcons,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                hasExactLocation
+                    ? 'Directions now use the protected report pin.'
+                    : 'Public browsing shows a fuzzed pin within about ${radius ?? reportLocationFuzzRadiusMeters} meters.',
+                style: TextStyle(
+                  color: WoofCareColors.mutedText.withValues(alpha: 0.86),
+                  fontSize: 13,
+                  height: 1.35,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              if (!isReporter && isOrganization && !hasExactLocation) ...[
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: WoofCareColors.buttonColor,
+                      foregroundColor: WoofCareColors.offWhite,
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    onPressed: widget.canAccept && !_accepting ? _accept : null,
+                    icon:
+                        _accepting
+                            ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: WoofCareColors.offWhite,
+                              ),
+                            )
+                            : const Icon(Icons.assignment_turned_in_rounded),
+                    label: Text(
+                      profile.verified
+                          ? 'Accept responsibility'
+                          : 'Verification required',
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+        if (isReporter) ...[
+          const SizedBox(height: 18),
+          _AcceptedOrganizationsCard(reportId: widget.markerData['id']),
+        ],
+      ],
+    );
+  }
+}
+
+class _AcceptedOrganizationsCard extends StatelessWidget {
+  final Object? reportId;
+
+  const _AcceptedOrganizationsCard({required this.reportId});
+
+  @override
+  Widget build(BuildContext context) {
+    final id = reportId?.toString();
+    if (id == null || id.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return FutureBuilder<List<AcceptedOrganization>>(
+      future: ReportLocationService.acceptedOrganizationsForReport(id),
+      builder: (context, snapshot) {
+        final organizations = snapshot.data ?? [];
+
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: WoofCareColors.buttonColor.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: WoofCareColors.buttonColor.withValues(alpha: 0.18),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Accepted organizations',
+                style: TextStyle(
+                  color: WoofCareColors.primaryTextAndIcons,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 10),
+              if (snapshot.connectionState == ConnectionState.waiting)
+                const LinearProgressIndicator(color: WoofCareColors.buttonColor)
+              else if (organizations.isEmpty)
+                Text(
+                  'No organization has accepted this report yet.',
+                  style: TextStyle(
+                    color: WoofCareColors.mutedText.withValues(alpha: 0.86),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                )
+              else
+                for (final organization in organizations)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.verified_rounded,
+                          size: 18,
+                          color: WoofCareColors.buttonColor,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            [
+                              organization.organizationName,
+                              if (_nonEmptyString(
+                                    organization.organizationRole,
+                                  ) !=
+                                  null)
+                                organization.organizationRole!,
+                            ].join(' - '),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: WoofCareColors.primaryTextAndIcons,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
