@@ -40,7 +40,7 @@ class WoofCareNavBar extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
             _NavIcon(
-              icon: FontAwesomeIcons.mapLocationDot,
+              icon: FontAwesomeIcons.locationDot,
               selected: currentIndex == 0,
               tooltip: 'Map',
               onTap: () => onTabSelected(0),
@@ -53,9 +53,9 @@ class WoofCareNavBar extends StatelessWidget {
             ),
             _ReportAction(onTap: onReportTap),
             _NavIcon(
-              icon: FontAwesomeIcons.solidBookmark,
+              icon: FontAwesomeIcons.userGroup,
               selected: currentIndex == 2,
-              tooltip: 'Posts',
+              tooltip: 'Community',
               onTap: () => onTabSelected(2),
             ),
             _NavIcon(

@@ -63,6 +63,8 @@ class _ArticlePageState extends State<ArticlePage> {
                 WoofCareScreenHeader(
                   title: 'Articles',
                   subtitle: 'Care guides and rescue stories',
+                  icon: Icons.menu_book_rounded,
+                  height: 192,
                   searchController: searchController,
                   searchHint: 'Search articles',
                   onSearchChanged: _performSearch,
@@ -73,6 +75,8 @@ class _ArticlePageState extends State<ArticlePage> {
                   ],
                   bottom: SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
+                    physics: const BouncingScrollPhysics(),
+                    clipBehavior: Clip.none,
                     child: Row(
                       children: [
                         _buildCategoryButton('All'),

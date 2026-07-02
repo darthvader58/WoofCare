@@ -4,6 +4,7 @@ import 'package:woofcare/config/colors.dart';
 class WoofCareScreenHeader extends StatelessWidget {
   final String title;
   final String? subtitle;
+  final IconData? icon;
   final TextEditingController? searchController;
   final String? searchHint;
   final ValueChanged<String>? onSearchChanged;
@@ -15,6 +16,7 @@ class WoofCareScreenHeader extends StatelessWidget {
     super.key,
     required this.title,
     this.subtitle,
+    this.icon,
     this.searchController,
     this.searchHint,
     this.onSearchChanged,
@@ -28,28 +30,52 @@ class WoofCareScreenHeader extends StatelessWidget {
     final hasSearch = searchController != null && searchHint != null;
 
     return Container(
-      height: height,
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+      constraints: BoxConstraints(minHeight: height),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
       decoration: BoxDecoration(
         color: WoofCareColors.offWhite,
         border: Border(
           bottom: BorderSide(
-            color: WoofCareColors.primaryTextAndIcons.withValues(alpha: 0.18),
+            color: WoofCareColors.primaryTextAndIcons.withValues(alpha: 0.1),
           ),
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.12),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+            color: Colors.black.withValues(alpha: 0.07),
+            blurRadius: 16,
+            offset: const Offset(0, 5),
           ),
         ],
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
+              if (icon != null) ...[
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: WoofCareColors.floatingActionIcons.withValues(
+                      alpha: 0.1,
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: WoofCareColors.floatingActionIcons.withValues(
+                        alpha: 0.12,
+                      ),
+                    ),
+                  ),
+                  child: Icon(
+                    icon,
+                    color: WoofCareColors.floatingActionIcons,
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(width: 14),
+              ],
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -60,22 +86,24 @@ class WoofCareScreenHeader extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         color: WoofCareColors.primaryTextAndIcons,
-                        fontSize: 24,
+                        fontSize: 27,
                         fontWeight: FontWeight.w800,
+                        height: 1.05,
                       ),
                     ),
                     if (subtitle != null) ...[
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 5),
                       Text(
                         subtitle!,
-                        maxLines: 1,
+                        maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           color: WoofCareColors.mutedText.withValues(
-                            alpha: 0.82,
+                            alpha: 0.86,
                           ),
                           fontSize: 13,
-                          fontWeight: FontWeight.w500,
+                          height: 1.2,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ],
@@ -83,13 +111,13 @@ class WoofCareScreenHeader extends StatelessWidget {
                 ),
               ),
               if (actions.isNotEmpty) ...[
-                const SizedBox(width: 12),
+                const SizedBox(width: 10),
                 Row(mainAxisSize: MainAxisSize.min, children: actions),
               ],
             ],
           ),
           if (hasSearch) ...[
-            const SizedBox(height: 14),
+            const SizedBox(height: 16),
             WoofCareSearchField(
               controller: searchController!,
               hintText: searchHint!,
@@ -118,7 +146,7 @@ class WoofCareSearchField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 44,
+      height: 48,
       child: TextField(
         controller: controller,
         onChanged: onChanged,
@@ -130,21 +158,21 @@ class WoofCareSearchField extends StatelessWidget {
         decoration: InputDecoration(
           hintText: hintText,
           hintStyle: TextStyle(
-            color: WoofCareColors.primaryTextAndIcons.withValues(alpha: 0.58),
+            color: WoofCareColors.primaryTextAndIcons.withValues(alpha: 0.54),
             fontSize: 14,
           ),
           filled: true,
-          fillColor: WoofCareColors.textBoxColor.withValues(alpha: 0.88),
+          fillColor: WoofCareColors.textBoxColor.withValues(alpha: 0.68),
           suffixIcon: const Icon(
             Icons.search,
             color: WoofCareColors.primaryTextAndIcons,
           ),
           contentPadding: const EdgeInsets.symmetric(
-            horizontal: 14,
+            horizontal: 18,
             vertical: 12,
           ),
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(18),
             borderSide: BorderSide.none,
           ),
         ),
@@ -203,19 +231,30 @@ class WoofCareFilterPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(18),
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        width: 84,
-        height: 30,
+        constraints: const BoxConstraints(minWidth: 82),
+        height: 36,
+        padding: const EdgeInsets.symmetric(horizontal: 18),
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color:
               selected
                   ? WoofCareColors.buttonColor
                   : WoofCareColors.backgroundElementColor,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(18),
+          boxShadow:
+              selected
+                  ? [
+                    BoxShadow(
+                      color: WoofCareColors.buttonColor.withValues(alpha: 0.22),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ]
+                  : null,
         ),
         child: Text(
           label,
