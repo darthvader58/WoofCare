@@ -75,21 +75,23 @@ class _ConversationsPageState extends State<ConversationsPage> {
             WoofCareScreenHeader(
               title: 'Messages',
               subtitle: 'Coordinate help and follow-ups',
-              height: 152,
+              icon: Icons.chat_bubble_rounded,
+              height: 160,
               searchController: _searchController,
               searchHint: 'Search conversations',
               onSearchChanged:
                   (value) =>
                       setState(() => _query = value.trim().toLowerCase()),
               actions: [
-                IconButton(
+                IconButton.filledTonal(
                   tooltip: 'New conversation',
-                  onPressed: _openSearchSheet,
-                  icon: const Icon(
-                    Icons.add,
-                    color: WoofCareColors.floatingActionIcons,
-                    size: 32,
+                  style: IconButton.styleFrom(
+                    backgroundColor: WoofCareColors.floatingActionIcons
+                        .withValues(alpha: 0.14),
+                    foregroundColor: WoofCareColors.floatingActionIcons,
                   ),
+                  onPressed: _openSearchSheet,
+                  icon: const Icon(Icons.add_rounded, size: 30),
                 ),
                 const SizedBox(width: 8),
                 WoofCareProfileAvatar(
@@ -221,21 +223,23 @@ class _ConversationRow extends StatelessWidget {
     final imageIndex = (placeholderIndex % 8).clamp(0, 7);
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
       child: Material(
-        color: WoofCareColors.secondaryBackground,
-        borderRadius: BorderRadius.circular(18),
+        color: WoofCareColors.offWhite,
+        elevation: 3,
+        shadowColor: WoofCareColors.cardShadow,
+        borderRadius: BorderRadius.circular(22),
         child: InkWell(
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(22),
           onTap: onTap,
           child: SizedBox(
-            height: 86,
+            height: 92,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 14),
               child: Row(
                 children: [
                   CircleAvatar(
-                    radius: 28,
+                    radius: 30,
                     backgroundColor: WoofCareColors.backgroundElementColor,
                     backgroundImage: AssetImage(
                       "assets/images/placeholders/$imageIndex.jpg",
@@ -256,18 +260,29 @@ class _ConversationRow extends StatelessWidget {
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
                                   color: WoofCareColors.primaryTextAndIcons,
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.w400,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w800,
                                 ),
                               ),
                             ),
                             const SizedBox(width: 12),
-                            const Text(
-                              "Yesterday",
-                              style: TextStyle(
-                                color: WoofCareColors.mutedText,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w300,
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 9,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: WoofCareColors.floatingActionIcons
+                                    .withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Text(
+                                "Chat",
+                                style: TextStyle(
+                                  color: WoofCareColors.floatingActionIcons,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w800,
+                                ),
                               ),
                             ),
                           ],
@@ -283,6 +298,7 @@ class _ConversationRow extends StatelessWidget {
                               style: const TextStyle(
                                 color: Color(0xFF734C28),
                                 fontSize: 14,
+                                fontWeight: FontWeight.w600,
                               ),
                             );
                           },
@@ -390,8 +406,8 @@ class _SearchBottomSheetState extends State<SearchBottomSheet> {
         bottom: MediaQuery.of(context).viewInsets.bottom,
       ),
       child: Container(
-        height: 420,
-        padding: const EdgeInsets.all(16),
+        height: 460,
+        padding: const EdgeInsets.fromLTRB(18, 14, 18, 18),
         decoration: const BoxDecoration(
           color: WoofCareColors.secondaryBackground,
           borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
@@ -407,6 +423,15 @@ class _SearchBottomSheetState extends State<SearchBottomSheet> {
               ),
             ),
             const SizedBox(height: 16),
+            const Text(
+              "New conversation",
+              style: TextStyle(
+                color: WoofCareColors.primaryTextAndIcons,
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 14),
             TextField(
               controller: searchController,
               maxLines: 1,
@@ -421,7 +446,7 @@ class _SearchBottomSheetState extends State<SearchBottomSheet> {
                 constraints: const BoxConstraints(maxHeight: 60),
                 filled: true,
                 fillColor: WoofCareColors.offWhite,
-                hintText: "Find User...",
+                hintText: "Find user",
                 hintStyle: TextStyle(
                   fontSize: 16,
                   color: WoofCareColors.primaryTextAndIcons.withValues(
@@ -431,11 +456,11 @@ class _SearchBottomSheetState extends State<SearchBottomSheet> {
                 prefixIcon: const Icon(Icons.search),
                 prefixIconColor: WoofCareColors.primaryTextAndIcons,
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(24),
+                  borderRadius: BorderRadius.circular(18),
                   borderSide: BorderSide.none,
                 ),
                 focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(24),
+                  borderRadius: BorderRadius.circular(18),
                   borderSide: const BorderSide(
                     color: WoofCareColors.buttonColor,
                   ),
@@ -478,8 +503,10 @@ class _SearchBottomSheetState extends State<SearchBottomSheet> {
                             decoration: BoxDecoration(
                               color:
                                   isSelected
-                                      ? WoofCareColors.secondaryBackground
-                                      : WoofCareColors.offWhite,
+                                      ? WoofCareColors.offWhite
+                                      : WoofCareColors.offWhite.withValues(
+                                        alpha: 0.88,
+                                      ),
                               border: Border.all(
                                 color:
                                     isSelected
@@ -491,7 +518,10 @@ class _SearchBottomSheetState extends State<SearchBottomSheet> {
                             ),
                             child: ListTile(
                               leading: CircleAvatar(
-                                backgroundColor: WoofCareColors.buttonColor,
+                                backgroundColor:
+                                    isSelected
+                                        ? WoofCareColors.floatingActionIcons
+                                        : WoofCareColors.buttonColor,
                                 child: Icon(
                                   Icons.person,
                                   color:
@@ -500,9 +530,14 @@ class _SearchBottomSheetState extends State<SearchBottomSheet> {
                                           : WoofCareColors.offWhite,
                                 ),
                               ),
-                              trailing: const Icon(
-                                Icons.arrow_forward_ios,
-                                color: WoofCareColors.buttonColor,
+                              trailing: Icon(
+                                isSelected
+                                    ? Icons.check_circle_rounded
+                                    : Icons.arrow_forward_ios_rounded,
+                                color:
+                                    isSelected
+                                        ? WoofCareColors.floatingActionIcons
+                                        : WoofCareColors.buttonColor,
                               ),
                               title: Text(
                                 user,
