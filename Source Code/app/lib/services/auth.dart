@@ -83,6 +83,7 @@ class Auth {
     required String password,
     required BuildContext context,
     required void Function(FirebaseAuthException e) error,
+    String? expectedAccountType,
   }) async {
     try {
       await AUTH.signInWithEmailAndPassword(email: email, password: password);
@@ -90,6 +91,21 @@ class Auth {
       String uid = AUTH.currentUser!.uid;
 
       profile = await Profile.fromID(uid);
+
+      if (expectedAccountType != null &&
+          profile.accountType != expectedAccountType) {
+        await AUTH.signOut();
+        error(
+          FirebaseAuthException(
+            code: "wrong-account-type",
+            message:
+                expectedAccountType == "organization"
+                    ? "This account is registered as an individual member."
+                    : "This account is registered as an organization.",
+          ),
+        );
+        return;
+      }
 
       if (context.mounted) {
         Navigator.pushNamed(context, "/");

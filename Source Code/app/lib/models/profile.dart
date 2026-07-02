@@ -8,7 +8,9 @@ class Profile {
   final String email;
   final String role;
   final String phone;
+  final String accountType;
   final DocumentReference reference;
+  final bool verified;
   bool shareProfile;
   String bio;
   var chats = [];
@@ -20,7 +22,9 @@ class Profile {
     required this.role,
     required this.bio,
     required this.phone,
+    this.accountType = "member",
     required this.reference,
+    this.verified = false,
     this.shareProfile = true,
   });
 
@@ -41,7 +45,9 @@ class Profile {
       role: data["role"] as String,
       bio: data["bio"] as String,
       phone: data["phone"] as String,
+      accountType: data["accountType"] as String? ?? "member",
       reference: doc.reference,
+      verified: data["verified"] as bool? ?? false,
       shareProfile: data["shareProfile"] as bool? ?? true,
     );
   }
@@ -64,7 +70,9 @@ class Profile {
         role: data["role"] as String,
         bio: data["bio"] as String,
         phone: data["phone"] as String,
+        accountType: data["accountType"] as String? ?? "member",
         reference: doc.reference,
+        verified: data["verified"] as bool? ?? false,
         shareProfile: data["shareProfile"] as bool? ?? true,
       );
     }
