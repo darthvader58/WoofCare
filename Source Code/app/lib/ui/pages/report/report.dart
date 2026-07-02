@@ -115,7 +115,11 @@ class _ReportPageState extends State<ReportPage> {
   Widget build(BuildContext context) {
     return SingleChildScrollView(
       controller: widget.scrollController,
-      padding: const EdgeInsets.only(bottom: 100, top: 20),
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.viewInsetsOf(context).bottom + 120,
+        top: 20,
+      ),
       child: Container(
         color: WoofCareColors.secondaryBackground,
 

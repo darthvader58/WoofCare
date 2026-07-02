@@ -189,12 +189,18 @@ class _SignUpPageState extends State<SignUpPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: WoofCareColors.primaryBackground,
-      resizeToAvoidBottomInset: false,
+      resizeToAvoidBottomInset: true,
       body: AuthBackground(
         child: Center(
           child: SingleChildScrollView(
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 25.0),
+              padding: EdgeInsets.fromLTRB(
+                25,
+                24,
+                25,
+                MediaQuery.viewInsetsOf(context).bottom + 24,
+              ),
               child: AuthContainer(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
