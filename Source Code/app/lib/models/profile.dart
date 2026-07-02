@@ -26,6 +26,10 @@ class Profile {
     final DocumentSnapshot doc =
         await FIRESTORE.collection("users").doc(id).get();
 
+    if (!doc.exists) {
+      throw StateError("No profile document found for signed-in user $id");
+    }
+
     return Profile(
       id: id,
       name: doc.get("name") as String,
