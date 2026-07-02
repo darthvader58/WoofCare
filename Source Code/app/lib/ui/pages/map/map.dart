@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:get/get.dart';
@@ -23,6 +25,7 @@ class MapPage extends StatefulWidget {
 
 class _MapPageState extends State<MapPage> {
   final locationController = Location();
+  GoogleMapController? _mapController;
   LatLng? currentPosition;
 
   List<Map<String, dynamic>> markers = [];
@@ -53,6 +56,7 @@ class _MapPageState extends State<MapPage> {
   @override
   void dispose() {
     _locationSubscription?.cancel();
+    _mapController?.dispose();
     super.dispose();
   }
 
@@ -315,10 +319,23 @@ class _MapPageState extends State<MapPage> {
                       )
                       : GoogleMap(
                         style: WoofCareMapStyle.light,
-                        myLocationButtonEnabled: false,
-                        zoomControlsEnabled: false,
+                        gestureRecognizers: {
+                          Factory<OneSequenceGestureRecognizer>(
+                            () => EagerGestureRecognizer(),
+                          ),
+                        },
+                        myLocationButtonEnabled: true,
+                        myLocationEnabled: true,
+                        zoomControlsEnabled: true,
                         mapToolbarEnabled: false,
-                        compassEnabled: false,
+                        onMapCreated: (controller) {
+                          _mapController = controller;
+                        },
+                        compassEnabled: true,
+                        scrollGesturesEnabled: true,
+                        zoomGesturesEnabled: true,
+                        rotateGesturesEnabled: true,
+                        tiltGesturesEnabled: true,
                         padding: const EdgeInsets.only(top: 132, bottom: 108),
                         mapType: MapType.normal,
                         initialCameraPosition: CameraPosition(
@@ -702,32 +719,33 @@ class _MapPageState extends State<MapPage> {
     }
 
     final initialLocation = await locationController.getLocation();
-    if (initialLocation.latitude != null &&
-        initialLocation.longitude != null &&
-        mounted) {
-      setState(() {
-        currentPosition = LatLng(
-          initialLocation.latitude!,
-          initialLocation.longitude!,
-        );
-      });
-    }
+    await _updateCurrentPosition(initialLocation, moveCamera: false);
 
     await _locationSubscription?.cancel();
     _locationSubscription = locationController.onLocationChanged.listen((
       currentLocation,
     ) {
-      if (currentLocation.latitude != null &&
-          currentLocation.longitude != null &&
-          context.mounted) {
-        setState(() {
-          currentPosition = LatLng(
-            currentLocation.latitude!,
-            currentLocation.longitude!,
-          );
-        });
-      }
+      _updateCurrentPosition(currentLocation);
     });
+  }
+
+  Future<void> _updateCurrentPosition(
+    LocationData location, {
+    bool moveCamera = true,
+  }) async {
+    if (location.latitude == null || location.longitude == null || !mounted) {
+      return;
+    }
+
+    final position = LatLng(location.latitude!, location.longitude!);
+
+    setState(() {
+      currentPosition = position;
+    });
+
+    if (moveCamera) {
+      await _mapController?.animateCamera(CameraUpdate.newLatLng(position));
+    }
   }
 }
 
@@ -801,11 +819,18 @@ class _MapToolbar extends StatelessWidget {
   }
 }
 
-class _MapFilterBar extends StatelessWidget {
+class _MapFilterBar extends StatefulWidget {
   final String selectedType;
   final ValueChanged<String> onSelected;
 
   const _MapFilterBar({required this.selectedType, required this.onSelected});
+
+  @override
+  State<_MapFilterBar> createState() => _MapFilterBarState();
+}
+
+class _MapFilterBarState extends State<_MapFilterBar> {
+  final ScrollController _scrollController = ScrollController();
 
   static const filters = [
     ('all', 'All'),
@@ -818,22 +843,94 @@ class _MapFilterBar extends StatelessWidget {
   ];
 
   @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _scrollBy(double delta) {
+    if (!_scrollController.hasClients) return;
+
+    final target = (_scrollController.offset + delta).clamp(
+      0.0,
+      _scrollController.position.maxScrollExtent,
+    );
+
+    _scrollController.animateTo(
+      target,
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 42,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 14),
-        itemCount: filters.length,
-        separatorBuilder: (context, index) => const SizedBox(width: 8),
-        itemBuilder: (context, index) {
-          final filter = filters[index];
-          return WoofCareFilterPill(
-            label: filter.$2,
-            selected: selectedType == filter.$1,
-            onTap: () => onSelected(filter.$1),
-          );
-        },
+      height: 52,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          ListView.separated(
+            controller: _scrollController,
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            clipBehavior: Clip.none,
+            padding: const EdgeInsets.fromLTRB(56, 8, 56, 8),
+            itemCount: filters.length,
+            separatorBuilder: (context, index) => const SizedBox(width: 8),
+            itemBuilder: (context, index) {
+              final filter = filters[index];
+              return WoofCareFilterPill(
+                label: filter.$2,
+                selected: widget.selectedType == filter.$1,
+                onTap: () => widget.onSelected(filter.$1),
+              );
+            },
+          ),
+          Positioned(
+            left: 10,
+            child: _FilterScrollButton(
+              icon: Icons.chevron_left_rounded,
+              onTap: () => _scrollBy(-180),
+            ),
+          ),
+          Positioned(
+            right: 10,
+            child: _FilterScrollButton(
+              icon: Icons.chevron_right_rounded,
+              onTap: () => _scrollBy(180),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FilterScrollButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _FilterScrollButton({required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: WoofCareColors.offWhite.withValues(alpha: 0.96),
+      borderRadius: BorderRadius.circular(18),
+      elevation: 3,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: onTap,
+        child: SizedBox(
+          width: 36,
+          height: 36,
+          child: Icon(
+            icon,
+            color: WoofCareColors.primaryTextAndIcons,
+            size: 24,
+          ),
+        ),
       ),
     );
   }
