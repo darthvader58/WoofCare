@@ -5,7 +5,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:get/get.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:location/location.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -72,6 +71,9 @@ class _MapPageState extends State<MapPage> {
 
   Future<void> _showMarkerBottomSheet(int index) async {
     Map<String, dynamic> markerData = markers[index];
+    final isReport = markerData['type'] == 'report';
+    final title = _markerTitle(markerData);
+    final images = _markerImages(markerData);
 
     await showModalBottomSheet(
       context: context,
@@ -87,8 +89,8 @@ class _MapPageState extends State<MapPage> {
             }
           },
           child: DraggableScrollableSheet(
-            initialChildSize: 0.28,
-            minChildSize: 0.15,
+            initialChildSize: 0.54,
+            minChildSize: 0.28,
             maxChildSize: 0.75,
             builder: (sheetContext, scrollController) {
               return Container(
@@ -128,74 +130,28 @@ class _MapPageState extends State<MapPage> {
                           ),
                         ),
 
-                        // Title row with image, name and rating/state
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // Placeholder image (replace with network/image if available)
-                            Container(
-                              width: 90,
-                              height: 90,
-                              decoration: BoxDecoration(
-                                color: Colors.grey[300],
-                                borderRadius: BorderRadius.circular(12),
-                                image: const DecorationImage(
-                                  image: AssetImage(
-                                    'assets/images/placeholders/placeholder.jpeg',
-                                  ),
-                                  fit: BoxFit.cover,
-                                ),
-                              ),
-                            ),
-
+                            _MarkerPreviewImage(images: images),
                             const SizedBox(width: 12),
-
-                            // Name and metadata
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    ((markerData['name'] ?? "Unknown")
-                                            as String)
-                                        .capitalize!,
+                                    title,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
                                     style: const TextStyle(
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.w600,
+                                      fontSize: 22,
+                                      height: 1.15,
+                                      fontWeight: FontWeight.w800,
                                       color: WoofCareColors.primaryTextAndIcons,
                                     ),
                                   ),
-                                  const SizedBox(height: 6),
-                                  Row(
-                                    children: const [
-                                      Icon(
-                                        Icons.star,
-                                        size: 16,
-                                        color: Colors.amber,
-                                      ),
-                                      SizedBox(width: 6),
-                                      Text(
-                                        '4.3',
-                                        style: TextStyle(fontSize: 14),
-                                      ),
-                                      SizedBox(width: 8),
-                                      Text(
-                                        '(59)',
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          color: Colors.grey,
-                                        ),
-                                      ),
-                                      SizedBox(width: 8),
-                                      Text(
-                                        '• 2 min',
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          color: Colors.grey,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
+                                  const SizedBox(height: 8),
+                                  _MarkerMeta(markerData: markerData),
                                 ],
                               ),
                             ),
@@ -204,78 +160,31 @@ class _MapPageState extends State<MapPage> {
 
                         const SizedBox(height: 12),
 
-                        // Action buttons row
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            _buildMapAction(
-                              icon: Icons.directions,
-                              label: 'Directions',
-                              onTap: () async {
-                                Navigator.of(context).pop();
-                                await _openDirections(markerData);
-                              },
-                            ),
-                            const SizedBox(width: 8),
-                            _buildMapAction(
-                              icon: Icons.call,
-                              label: 'Call',
-                              onTap: () async {
-                                final phone = markerData['phone'];
-
-                                if (phone != null &&
-                                    phone.toString().isNotEmpty) {
-                                  final uri = Uri(
-                                    scheme: 'tel',
-                                    path: phone.toString(),
-                                  );
-
-                                  if (await canLaunchUrl(uri)) {
-                                    await launchUrl(uri);
-                                  }
-                                }
-                              },
-                            ),
-                            const SizedBox(width: 8),
-                            _buildMapAction(
-                              icon: Icons.public,
-                              label: 'Website',
-                              onTap: () async {
-                                final website = markerData['website'];
-                                if (website != null &&
-                                    website.toString().isNotEmpty) {
-                                  var uri = Uri.parse(website.toString());
-
-                                  if (!uri.hasScheme) {
-                                    uri = Uri.parse(
-                                      'https://${website.toString()}',
-                                    );
-                                  }
-                                  if (await canLaunchUrl(uri)) {
-                                    await launchUrl(
-                                      uri,
-                                      mode: LaunchMode.externalApplication,
-                                    );
-                                  }
-                                }
-                              },
-                            ),
-                            const SizedBox(width: 8),
-                            _buildMapAction(
-                              icon: Icons.share,
-                              label: 'Share',
-                              onTap: () {},
-                            ),
-                          ],
+                        _MarkerActions(
+                          markerData: markerData,
+                          onDirections: () async {
+                            Navigator.of(context).pop();
+                            await _openDirections(markerData);
+                          },
+                          onCall: () => _launchPhone(_markerPhone(markerData)),
+                          onWebsite: () => _openWebsite(markerData),
+                          onChat:
+                              isReport
+                                  ? () => _startChatWithReporter(markerData)
+                                  : null,
                         ),
 
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 18),
 
-                        const Divider(color: Colors.black, height: 2.0),
+                        Divider(
+                          color: WoofCareColors.primaryTextAndIcons.withValues(
+                            alpha: 0.18,
+                          ),
+                          height: 1,
+                        ),
 
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 18),
 
-                        // About / Description
                         const Text(
                           'About',
                           style: TextStyle(
@@ -284,10 +193,29 @@ class _MapPageState extends State<MapPage> {
                           ),
                         ),
                         const SizedBox(height: 8),
-                        Text(
-                          markerData['description'] ??
-                              'No description available.',
-                        ),
+                        _MarkerAbout(markerData: markerData, images: images),
+
+                        if (isReport && images.isNotEmpty) ...[
+                          const SizedBox(height: 18),
+                          const Text(
+                            'Photos',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                              color: WoofCareColors.primaryTextAndIcons,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          _MarkerImageStrip(images: images),
+                        ],
+
+                        if (isReport &&
+                            (markerData['reporterName'] ?? '')
+                                .toString()
+                                .isNotEmpty) ...[
+                          const SizedBox(height: 18),
+                          _ReporterCard(markerData: markerData),
+                        ],
 
                         const SizedBox(height: 18),
                       ],
@@ -300,6 +228,173 @@ class _MapPageState extends State<MapPage> {
         );
       },
     );
+  }
+
+  String _markerTitle(Map<String, dynamic> markerData) {
+    final title = markerData['title'] ?? markerData['name'];
+    final value = title?.toString().trim();
+    if (value == null || value.isEmpty) return 'Unknown';
+    return value;
+  }
+
+  List<String> _markerImages(Map<String, dynamic> markerData) {
+    final values = <String>[];
+    final imageFields = [
+      markerData['imageUrls'],
+      markerData['images'],
+      markerData['photos'],
+    ];
+
+    for (final field in imageFields) {
+      if (field is List) {
+        values.addAll(
+          field
+              .map((value) => value.toString().trim())
+              .where((value) => value.isNotEmpty),
+        );
+      }
+    }
+
+    final singleImage = markerData['imageUrl']?.toString().trim();
+    if (singleImage != null && singleImage.isNotEmpty) {
+      values.add(singleImage);
+    }
+
+    return values;
+  }
+
+  String? _markerPhone(Map<String, dynamic> markerData) {
+    final value =
+        markerData['type'] == 'report'
+            ? markerData['reporterPhone']
+            : markerData['phone'];
+    final phone = value?.toString().trim();
+    if (phone == null || phone.isEmpty) return null;
+    return phone;
+  }
+
+  Future<void> _launchPhone(String? phone) async {
+    if (phone == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No phone number available')),
+      );
+      return;
+    }
+
+    final uri = Uri(scheme: 'tel', path: phone);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    }
+  }
+
+  Future<void> _openWebsite(Map<String, dynamic> markerData) async {
+    final website = markerData['website'];
+    if (website == null || website.toString().trim().isEmpty) return;
+
+    var uri = Uri.parse(website.toString().trim());
+    if (!uri.hasScheme) {
+      uri = Uri.parse('https://${website.toString().trim()}');
+    }
+
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  Future<void> _startChatWithReporter(Map<String, dynamic> markerData) async {
+    final reporterName =
+        (markerData['actualReporterName'] ?? markerData['reporterName'])
+            ?.toString()
+            .trim();
+    if (reporterName == null || reporterName.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Reporter profile is unavailable')),
+      );
+      return;
+    }
+
+    if (reporterName == profile.name) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('This is your report')));
+      return;
+    }
+
+    final snapshot =
+        await FIRESTORE
+            .collection('conversations')
+            .where('participants', arrayContains: profile.name)
+            .get();
+
+    final conversations =
+        snapshot.docs.where((doc) {
+          final data = doc.data();
+          final participants = data['participants'] as List? ?? [];
+          return participants.contains(reporterName) &&
+              data['isReportChat'] == true &&
+              data['reportId'] == markerData['id'];
+        }).toList();
+
+    final isAnonymous = markerData['isAnonymous'] == true;
+    final requesterDisplayName =
+        profile.shareProfile ? profile.name : 'Anonymous User';
+    final reporterDisplayName =
+        isAnonymous ? 'Anonymous Reporter' : reporterName;
+    final existingData =
+        conversations.isNotEmpty ? conversations.first.data() : null;
+
+    final conversationData = {
+      'messages': [],
+      'participants': [profile.name, reporterName],
+      'isReportChat': true,
+      'reportId': markerData['id'],
+      'anonymousReporter': isAnonymous,
+      'reporterName': reporterName,
+      'reporterDisplayName': reporterDisplayName,
+      'requesterName': profile.name,
+      'requesterDisplayName': requesterDisplayName,
+      'requesterProfileShared': profile.shareProfile,
+      if (isAnonymous && existingData?['expiresAt'] == null)
+        'expiresAt': Timestamp.fromDate(
+          DateTime.now().add(const Duration(hours: 48)),
+        ),
+    };
+
+    final chatID =
+        conversations.isEmpty
+            ? (await FIRESTORE
+                .collection('conversations')
+                .add(conversationData)).id
+            : conversations.first.id;
+
+    if (conversations.isNotEmpty) {
+      await conversations.first.reference.set(
+        conversationData,
+        SetOptions(merge: true),
+      );
+    }
+
+    if (!mounted) return;
+
+    Navigator.of(context).pop();
+    Navigator.pushNamed(
+      context,
+      '/chat',
+      arguments: {'chatID': chatID, 'participant': reporterDisplayName},
+    );
+  }
+
+  Future<void> _openDirections(Map<String, dynamic> markerData) async {
+    final maps = Uri.parse(
+      "https://www.google.com/maps?q=${markerData['latitude']},${markerData['longitude']}",
+    );
+
+    if (await canLaunchUrl(maps)) {
+      await launchUrl(maps, mode: LaunchMode.externalApplication);
+    }
   }
 
   @override
@@ -404,39 +499,6 @@ class _MapPageState extends State<MapPage> {
   bool _markerMatchesFilter(Map<String, dynamic> marker) {
     if (selectedMarkerType == 'all') return true;
     return marker['type'] == selectedMarkerType;
-  }
-
-  Widget _buildMapAction({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-  }) {
-    return Expanded(
-      child: ElevatedButton.icon(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: WoofCareColors.buttonColor,
-          foregroundColor: WoofCareColors.offWhite,
-          textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-        ),
-        onPressed: onTap,
-        icon: Icon(icon, size: 18),
-        label: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
-      ),
-    );
-  }
-
-  Future<void> _openDirections(Map<String, dynamic> markerData) async {
-    final maps = Uri.parse(
-      "https://www.google.com/maps?q=${markerData['latitude']},${markerData['longitude']}",
-    );
-
-    if (await canLaunchUrl(maps)) {
-      await launchUrl(maps, mode: LaunchMode.externalApplication);
-    }
   }
 
   Future<void> fetchLocationUpdates(BuildContext context) async {
@@ -660,19 +722,60 @@ class _MapPageState extends State<MapPage> {
       if (data != null &&
           data['latitude'] != null &&
           data['longitude'] != null) {
+        final isAnonymous = data['isAnonymous'] == true;
+        final shareReporterPhone =
+            !isAnonymous && data['shareReporterPhone'] == true;
+        String? reporterName = data['reporterName']?.toString();
+        String? reporterPhone =
+            shareReporterPhone ? data['reporterPhone']?.toString() : null;
+        String? reporterEmail = data['reporterEmail']?.toString();
+        final reporterId = data['userID']?.toString();
+
+        if ((reporterName == null ||
+                (shareReporterPhone && reporterPhone == null)) &&
+            reporterId != null &&
+            reporterId.isNotEmpty) {
+          try {
+            final userDoc =
+                await FIRESTORE.collection("users").doc(reporterId).get();
+            if (userDoc.exists) {
+              final userData = userDoc.data();
+              reporterName ??= userData?['name']?.toString();
+              if (shareReporterPhone) {
+                reporterPhone ??= userData?['phone']?.toString();
+              }
+              reporterEmail ??= userData?['email']?.toString();
+            }
+          } catch (_) {
+            // Keep report marker usable even if reporter lookup is unavailable.
+          }
+        }
+
         Map<String, dynamic> marker = {
           'id': doc.id,
           'latitude': (data['latitude'] as num).toDouble(),
           'longitude': (data['longitude'] as num).toDouble(),
-          'name': data['name'] ?? 'Unknown',
-          'description': data['description'] ?? 'NA',
-          'phone': data['phone'],
-          'website': data['website'] ?? "",
+          'title': data['title'] ?? data['name'] ?? 'Unknown report',
+          'name': data['title'] ?? data['name'] ?? 'Unknown report',
+          'description': data['description'] ?? '',
+          'location_description': data['location_description'],
+          'address': data['address'],
+          'extraNotes': data['extraNotes'],
+          'phone': reporterPhone,
+          'shareReporterPhone': shareReporterPhone,
+          'reporterPhone': reporterPhone,
+          'reporterName': isAnonymous ? 'Anonymous Reporter' : reporterName,
+          'actualReporterName': reporterName,
+          'reporterEmail': reporterEmail,
+          'website': '',
+          'imageUrl': data['imageUrl'],
+          'imageUrls': data['imageUrls'] ?? data['images'] ?? data['photos'],
           'icon': dogMarker,
           'selectIcon': dogSelectMarker,
           'type': 'report',
           'urgency': data['urgency'] ?? "low",
-          'userReported': data['userID'],
+          'userReported': reporterId,
+          'isAnonymous': isAnonymous,
           'selected': false,
         };
 
@@ -747,6 +850,464 @@ class _MapPageState extends State<MapPage> {
       await _mapController?.animateCamera(CameraUpdate.newLatLng(position));
     }
   }
+}
+
+class _MarkerPreviewImage extends StatelessWidget {
+  final List<String> images;
+
+  const _MarkerPreviewImage({required this.images});
+
+  @override
+  Widget build(BuildContext context) {
+    final image = images.isNotEmpty ? images.first : null;
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: SizedBox(
+        width: 96,
+        height: 96,
+        child:
+            image == null
+                ? Image.asset(
+                  'assets/images/placeholders/placeholder.jpeg',
+                  fit: BoxFit.cover,
+                )
+                : Image.network(
+                  image,
+                  fit: BoxFit.cover,
+                  errorBuilder:
+                      (context, error, stackTrace) => Image.asset(
+                        'assets/images/placeholders/placeholder.jpeg',
+                        fit: BoxFit.cover,
+                      ),
+                ),
+      ),
+    );
+  }
+}
+
+class _MarkerMeta extends StatelessWidget {
+  final Map<String, dynamic> markerData;
+
+  const _MarkerMeta({required this.markerData});
+
+  @override
+  Widget build(BuildContext context) {
+    final isReport = markerData['type'] == 'report';
+
+    if (isReport) {
+      final urgency = _urgencyLabel(markerData['urgency']);
+      final color = _urgencyColor(markerData['urgency']);
+
+      return Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          _InfoPill(
+            icon: Icons.priority_high_rounded,
+            label: urgency,
+            color: color,
+          ),
+          if ((markerData['reporterName'] ?? '').toString().trim().isNotEmpty)
+            _InfoPill(
+              icon: Icons.person_rounded,
+              label: markerData['reporterName'].toString(),
+              color: WoofCareColors.mutedText,
+            ),
+        ],
+      );
+    }
+
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: const [
+        _InfoPill(
+          icon: Icons.verified_rounded,
+          label: 'Organization',
+          color: WoofCareColors.buttonColor,
+        ),
+      ],
+    );
+  }
+}
+
+class _MarkerActions extends StatelessWidget {
+  final Map<String, dynamic> markerData;
+  final VoidCallback onDirections;
+  final VoidCallback onCall;
+  final VoidCallback onWebsite;
+  final VoidCallback? onChat;
+
+  const _MarkerActions({
+    required this.markerData,
+    required this.onDirections,
+    required this.onCall,
+    required this.onWebsite,
+    this.onChat,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isReport = markerData['type'] == 'report';
+    final hasWebsite =
+        !isReport && (markerData['website'] ?? '').toString().trim().isNotEmpty;
+    final hasPhone =
+        (isReport ? markerData['reporterPhone'] : markerData['phone'])
+            ?.toString()
+            .trim()
+            .isNotEmpty ==
+        true;
+
+    final actions = [
+      _MarkerActionButton(
+        icon: Icons.directions_rounded,
+        label: 'Directions',
+        onTap: onDirections,
+      ),
+      if (hasPhone)
+        _MarkerActionButton(
+          icon: Icons.call_rounded,
+          label: 'Call',
+          onTap: onCall,
+        ),
+      if (isReport && onChat != null)
+        _MarkerActionButton(
+          icon: Icons.chat_bubble_rounded,
+          label: 'Chat',
+          onTap: onChat!,
+        ),
+      if (hasWebsite)
+        _MarkerActionButton(
+          icon: Icons.public_rounded,
+          label: 'Website',
+          onTap: onWebsite,
+        ),
+    ];
+
+    return Row(
+      children: [
+        for (var i = 0; i < actions.length; i++) ...[
+          Expanded(child: actions[i]),
+          if (i != actions.length - 1) const SizedBox(width: 8),
+        ],
+      ],
+    );
+  }
+}
+
+class _MarkerActionButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _MarkerActionButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ElevatedButton.icon(
+      style: ElevatedButton.styleFrom(
+        backgroundColor: WoofCareColors.buttonColor,
+        foregroundColor: WoofCareColors.offWhite,
+        textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
+        padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 6),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        elevation: 4,
+      ),
+      onPressed: onTap,
+      icon: Icon(icon, size: 18),
+      label: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+    );
+  }
+}
+
+class _MarkerAbout extends StatelessWidget {
+  final Map<String, dynamic> markerData;
+  final List<String> images;
+
+  const _MarkerAbout({required this.markerData, required this.images});
+
+  @override
+  Widget build(BuildContext context) {
+    final isReport = markerData['type'] == 'report';
+    final description = _nonEmptyString(markerData['description']);
+
+    if (!isReport) {
+      return Text(
+        description ?? 'No description available.',
+        style: const TextStyle(
+          color: WoofCareColors.primaryTextAndIcons,
+          fontSize: 15,
+          height: 1.45,
+        ),
+      );
+    }
+
+    final details = [
+      if (description != null)
+        _DetailRow(
+          icon: Icons.notes_rounded,
+          label: 'Description',
+          value: description,
+        ),
+      if (_nonEmptyString(markerData['location_description']) != null)
+        _DetailRow(
+          icon: Icons.place_rounded,
+          label: 'Location notes',
+          value: _nonEmptyString(markerData['location_description'])!,
+        ),
+      if (_nonEmptyString(markerData['address']) != null)
+        _DetailRow(
+          icon: Icons.map_rounded,
+          label: 'Nearest address',
+          value: _nonEmptyString(markerData['address'])!,
+        ),
+      if (_nonEmptyString(markerData['extraNotes']) != null)
+        _DetailRow(
+          icon: Icons.info_rounded,
+          label: 'Additional notes',
+          value: _nonEmptyString(markerData['extraNotes'])!,
+        ),
+    ];
+
+    if (details.isEmpty) {
+      return const Text(
+        'No report details available.',
+        style: TextStyle(
+          color: WoofCareColors.primaryTextAndIcons,
+          fontSize: 15,
+          height: 1.45,
+        ),
+      );
+    }
+
+    return Column(children: details);
+  }
+}
+
+class _DetailRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+
+  const _DetailRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: WoofCareColors.offWhite.withValues(alpha: 0.72),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: WoofCareColors.primaryTextAndIcons.withValues(alpha: 0.08),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 18, color: WoofCareColors.buttonColor),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: WoofCareColors.mutedText.withValues(alpha: 0.82),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    color: WoofCareColors.primaryTextAndIcons,
+                    fontSize: 15,
+                    height: 1.35,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MarkerImageStrip extends StatelessWidget {
+  final List<String> images;
+
+  const _MarkerImageStrip({required this.images});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 108,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        itemCount: images.length,
+        separatorBuilder: (context, index) => const SizedBox(width: 10),
+        itemBuilder:
+            (context, index) => ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: Image.network(
+                images[index],
+                width: 132,
+                height: 108,
+                fit: BoxFit.cover,
+                errorBuilder:
+                    (context, error, stackTrace) => Container(
+                      width: 132,
+                      height: 108,
+                      color: WoofCareColors.textBoxColor,
+                      child: const Icon(
+                        Icons.image_not_supported_rounded,
+                        color: WoofCareColors.primaryTextAndIcons,
+                      ),
+                    ),
+              ),
+            ),
+      ),
+    );
+  }
+}
+
+class _ReporterCard extends StatelessWidget {
+  final Map<String, dynamic> markerData;
+
+  const _ReporterCard({required this.markerData});
+
+  @override
+  Widget build(BuildContext context) {
+    final name = markerData['reporterName']?.toString() ?? 'Reporter';
+    final phone = markerData['reporterPhone']?.toString();
+    final sharePhone = markerData['shareReporterPhone'] == true;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: WoofCareColors.buttonColor.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: WoofCareColors.buttonColor.withValues(alpha: 0.18),
+        ),
+      ),
+      child: Row(
+        children: [
+          const CircleAvatar(
+            backgroundColor: WoofCareColors.buttonColor,
+            foregroundColor: WoofCareColors.offWhite,
+            child: Icon(Icons.person_rounded),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: WoofCareColors.primaryTextAndIcons,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  !sharePhone || phone == null || phone.trim().isEmpty
+                      ? 'Phone not shared'
+                      : phone,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: WoofCareColors.mutedText.withValues(alpha: 0.82),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InfoPill extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  const _InfoPill({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 15, color: color),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+String _urgencyLabel(Object? value) {
+  final urgency = value?.toString().trim();
+  if (urgency == null || urgency.isEmpty) return 'Unknown urgency';
+  return urgency;
+}
+
+Color _urgencyColor(Object? value) {
+  final urgency = value?.toString().toLowerCase() ?? '';
+  if (urgency.contains('high')) return const Color(0xFFC0392B);
+  if (urgency.contains('medium')) return const Color(0xFFB76E22);
+  return const Color(0xFF2F7D52);
+}
+
+String? _nonEmptyString(Object? value) {
+  final text = value?.toString().trim();
+  if (text == null || text.isEmpty || text == 'NA') return null;
+  return text;
 }
 
 class _MapToolbar extends StatelessWidget {

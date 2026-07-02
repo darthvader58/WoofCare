@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:woofcare/config/constants.dart';
 import 'package:woofcare/services/auth.dart';
 import 'package:woofcare/ui/pages/export.dart';
 import 'package:woofcare/ui/widgets/custom_button.dart';
@@ -20,7 +21,13 @@ class _SettingsPageState extends State<SettingsPage> {
   // Independent dropdown values
   String selectedLanguage = "English";
   String selectedLocationSharing = "Friends Only";
-  String selectedProfileViewing = "Public";
+  late String selectedProfileViewing;
+
+  @override
+  void initState() {
+    super.initState();
+    selectedProfileViewing = profile.shareProfile ? "On" : "Off";
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -159,10 +166,18 @@ class _SettingsPageState extends State<SettingsPage> {
                   _buildDivider(),
                   _buildDropdownTile(
                     icon: Icons.visibility_outlined,
-                    title: "Profile Viewing",
-                    value: "Public",
-                    items: ["Public", "Friends Only", "Private"],
-                    onChanged: (val) {},
+                    title: "Profile Sharing",
+                    value: selectedProfileViewing,
+                    items: ["On", "Off"],
+                    onChanged: (val) async {
+                      if (val == null) return;
+                      final shareProfile = val == "On";
+                      setState(() => selectedProfileViewing = val);
+                      profile.shareProfile = shareProfile;
+                      await profile.reference.update({
+                        "shareProfile": shareProfile,
+                      });
+                    },
                   ),
                 ]),
 

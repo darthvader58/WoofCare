@@ -70,6 +70,32 @@ Imports location data from `org_data.json` into Firebase Firestore.
 
 You can still run the standalone scripts:
 
+### Backfill Privacy Fields
+
+After pulling the latest app changes, run this once so existing Firestore
+documents include the same privacy fields that new app writes now create.
+
+Preview changes:
+
+```bash
+python migrate_privacy_fields.py firebase-credentials.json
+```
+
+Apply changes:
+
+```bash
+python migrate_privacy_fields.py firebase-credentials.json --apply
+```
+
+This updates:
+
+- `users/{uid}.shareProfile` to `true` when missing.
+- `reports/{reportId}.isAnonymous` to `false` when missing.
+- `reports/{reportId}.shareReporterPhone` to `false` when missing.
+- `reports/{reportId}.reporterPhone` to `null` for anonymous or phone-private reports.
+- `conversations/{conversationId}.requesterProfileShared` to `true` when missing.
+- `conversations/{conversationId}.expiresAt` for anonymous report chats missing a 48-hour expiry.
+
 ### Article Scraper CLI
 
 
@@ -142,6 +168,37 @@ articles/
       ├── imageUrl: string
       ├── content: string
       └── sourceUrl: string
+```
+
+Privacy-aware app data uses these fields:
+
+```
+users/{uid}
+  ├── shareProfile: boolean
+
+reports/{reportId}
+  ├── userID: string
+  ├── reporterName: string
+  ├── reporterEmail: string
+  ├── isAnonymous: boolean
+  ├── shareReporterPhone: boolean
+  ├── reporterPhone: string | null
+  ├── title: string
+  ├── description: string
+  ├── urgency: string
+  └── timestamp: timestamp
+
+conversations/{conversationId}
+  ├── participants: string[]
+  ├── isReportChat: boolean
+  ├── reportId: string
+  ├── anonymousReporter: boolean
+  ├── reporterName: string
+  ├── reporterDisplayName: string
+  ├── requesterName: string
+  ├── requesterDisplayName: string
+  ├── requesterProfileShared: boolean
+  └── expiresAt: timestamp only for anonymous report chats
 ```
 
 ## Deploying Firestore Rules

@@ -99,6 +99,7 @@ class _SignUpPageState extends State<SignUpPage> {
             "email": _emailTextController.text.trim(),
             "name": _nameTextController.text.trim(),
             "role": role,
+            "shareProfile": true,
           },
           error: (e) {
             setState(() {

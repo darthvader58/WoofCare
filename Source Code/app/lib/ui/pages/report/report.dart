@@ -35,6 +35,7 @@ class _ReportPageState extends State<ReportPage> {
   bool useCurrentLocation = true;
   // bool dropPin = false;
   bool anonymousReport = false;
+  bool shareReporterPhone = false;
 
   void submitReport() async {
     CollectionReference reports = FIRESTORE.collection('reports');
@@ -75,6 +76,10 @@ class _ReportPageState extends State<ReportPage> {
 
     Map<String, dynamic> newReportData = {
       'userID': profile.id,
+      'reporterName': profile.name,
+      'shareReporterPhone': shareReporterPhone,
+      'reporterPhone': shareReporterPhone ? profile.phone : null,
+      'reporterEmail': profile.email,
       'title': _reportTitleController.text,
       'description': _dogDescriptionController.text,
       'location_description': _locationDescriptionController.text,
@@ -189,6 +194,12 @@ class _ReportPageState extends State<ReportPage> {
                   title: "Submit Anonymously",
                   value: anonymousReport,
                   onChanged: (val) => setState(() => anonymousReport = val),
+                ),
+                const SizedBox(height: 10),
+                _buildSwitchTile(
+                  title: "Share My Phone Number",
+                  value: shareReporterPhone,
+                  onChanged: (val) => setState(() => shareReporterPhone = val),
                 ),
                 const SizedBox(height: 10),
                 CustomTextField(

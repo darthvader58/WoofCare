@@ -9,6 +9,7 @@ class Profile {
   final String role;
   final String phone;
   final DocumentReference reference;
+  bool shareProfile;
   String bio;
   var chats = [];
 
@@ -20,6 +21,7 @@ class Profile {
     required this.bio,
     required this.phone,
     required this.reference,
+    this.shareProfile = true,
   });
 
   static Future<Profile> fromID(String id) async {
@@ -30,14 +32,17 @@ class Profile {
       throw StateError("No profile document found for signed-in user $id");
     }
 
+    final data = doc.data() as Map<String, dynamic>? ?? {};
+
     return Profile(
       id: id,
-      name: doc.get("name") as String,
-      email: doc.get("email") as String,
-      role: doc.get("role") as String,
-      bio: doc.get("bio") as String,
-      phone: doc.get("phone") as String,
+      name: data["name"] as String,
+      email: data["email"] as String,
+      role: data["role"] as String,
+      bio: data["bio"] as String,
+      phone: data["phone"] as String,
       reference: doc.reference,
+      shareProfile: data["shareProfile"] as bool? ?? true,
     );
   }
 
@@ -51,14 +56,16 @@ class Profile {
 
     if (snapshot.docs.isNotEmpty) {
       final doc = snapshot.docs.first;
+      final data = doc.data() as Map<String, dynamic>? ?? {};
       return Profile(
         id: doc.id,
-        name: doc.get("name") as String,
-        email: doc.get("email") as String,
-        role: doc.get("role") as String,
-        bio: doc.get("bio") as String,
-        phone: doc.get("phone") as String,
+        name: data["name"] as String,
+        email: data["email"] as String,
+        role: data["role"] as String,
+        bio: data["bio"] as String,
+        phone: data["phone"] as String,
         reference: doc.reference,
+        shareProfile: data["shareProfile"] as bool? ?? true,
       );
     }
     return null;
@@ -66,7 +73,7 @@ class Profile {
 
   Future<void> updateProfile() async {
     try {
-      await reference.update({'bio': bio});
+      await reference.update({'bio': bio, 'shareProfile': shareProfile});
     } catch (e) {
       // TODO: Handle error appropriately
     }
