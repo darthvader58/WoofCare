@@ -41,7 +41,7 @@ class Auth {
   static Future<void> signup({
     required String email,
     required String password,
-    required Map<String, String> data,
+    required Map<String, dynamic> data,
     required BuildContext context,
     required void Function(FirebaseAuthException e) error,
   }) async {
