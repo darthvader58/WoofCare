@@ -153,6 +153,120 @@ describe('community post rules', () => {
   });
 });
 
+describe('community post media fields', () => {
+  it('lets a signed-in user create a post with images, a video, and a link', async () => {
+    await assertSucceeds(
+      authorDb().collection('posts').add({
+        email: AUTHOR_EMAIL,
+        message: 'Rescued this pup today',
+        timestamp: new Date(),
+        likes: [],
+        images: [
+          'https://storage.example.com/posts/author-uid/images/p1-0.jpg',
+          'https://storage.example.com/posts/author-uid/images/p1-1.jpg',
+        ],
+        videoUrl: 'https://storage.example.com/posts/author-uid/videos/p1.mp4',
+        link: 'https://example.com/adopt',
+      }),
+    );
+  });
+
+  it('lets a post have media with no text message', async () => {
+    await assertSucceeds(
+      authorDb().collection('posts').add({
+        email: AUTHOR_EMAIL,
+        message: '',
+        timestamp: new Date(),
+        likes: [],
+        images: ['https://storage.example.com/posts/author-uid/images/p2-0.jpg'],
+      }),
+    );
+  });
+
+  it('denies more than 6 images on a post', async () => {
+    await assertFails(
+      authorDb().collection('posts').add({
+        email: AUTHOR_EMAIL,
+        message: 'Too many photos',
+        timestamp: new Date(),
+        likes: [],
+        images: Array.from({ length: 7 }, (_, i) => `https://storage.example.com/${i}.jpg`),
+      }),
+    );
+  });
+
+  it('denies a non-list images field', async () => {
+    await assertFails(
+      authorDb().collection('posts').add({
+        email: AUTHOR_EMAIL,
+        message: 'Bad images field',
+        timestamp: new Date(),
+        likes: [],
+        images: 'not-a-list',
+      }),
+    );
+  });
+
+  it('denies a non-string videoUrl or link', async () => {
+    await assertFails(
+      authorDb().collection('posts').add({
+        email: AUTHOR_EMAIL,
+        message: 'Bad video field',
+        timestamp: new Date(),
+        likes: [],
+        videoUrl: 12345,
+      }),
+    );
+
+    await assertFails(
+      authorDb().collection('posts').add({
+        email: AUTHOR_EMAIL,
+        message: 'Bad link field',
+        timestamp: new Date(),
+        likes: [],
+        link: { url: 'https://example.com' },
+      }),
+    );
+  });
+
+  it('lets the author edit their own media fields', async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await context.firestore().doc('posts/media-post').set({
+        email: AUTHOR_EMAIL,
+        message: 'Original',
+        timestamp: new Date(),
+        likes: [],
+        images: [],
+      });
+    });
+
+    await assertSucceeds(
+      authorDb().doc('posts/media-post').update({
+        images: ['https://storage.example.com/posts/author-uid/images/p3-0.jpg'],
+      }),
+    );
+  });
+
+  it('denies a non-author bundling media field edits into a like toggle', async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await context.firestore().doc('posts/media-post-2').set({
+        email: AUTHOR_EMAIL,
+        message: 'Original',
+        timestamp: new Date(),
+        likes: [],
+        images: [],
+      });
+    });
+
+    await assertFails(
+      otherDb().doc('posts/media-post-2').update({
+        likes: [OTHER_EMAIL],
+        images: Array.from({ length: 7 }, (_, i) => `https://storage.example.com/${i}.jpg`),
+      }),
+    );
+  });
+});
+
 describe('article rules', () => {
   it('lets anyone read articles but no client write them', async () => {
     await testEnv.withSecurityRulesDisabled(async (context) => {

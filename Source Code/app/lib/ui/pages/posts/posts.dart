@@ -119,13 +119,16 @@ class _SocialMediaFeedState extends State<SocialMediaFeed> {
                       padding: const EdgeInsets.fromLTRB(12, 14, 12, 124),
                       itemCount: snapshot.data!.docs.length,
                       itemBuilder: (context, index) {
-                        final post = snapshot.data!.docs[index];
+                        final post = snapshot.data!.docs[index].data();
                         return Post(
-                          message: post['message'],
+                          message: post['message']?.toString() ?? '',
                           user: post['email'],
                           time: formatDate(post['timestamp']),
-                          postId: post.id,
+                          postId: snapshot.data!.docs[index].id,
                           usersWhoLiked: List<String>.from(post['likes'] ?? []),
+                          images: List<String>.from(post['images'] ?? []),
+                          videoUrl: post['videoUrl']?.toString(),
+                          link: post['link']?.toString(),
                         );
                       },
                     );
