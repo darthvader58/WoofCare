@@ -49,3 +49,9 @@ app.*.map.json
 /app/ios/Flutter/flutter_export_environment.sh
 Source Code/app/ios/Flutter/flutter_export_environment.sh
 Source Code/app/android/app/.cxx/
+
+# Node / Firebase emulator tooling
+node_modules/
+
+# Claude Code worktrees
+.claude/worktrees/
