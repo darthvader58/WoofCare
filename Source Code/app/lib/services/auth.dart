@@ -5,6 +5,14 @@ import '/config/constants.dart';
 import '/models/profile.dart';
 
 class Auth {
+  static void _showUnexpectedError(BuildContext context, Object error) {
+    if (!context.mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("Authentication failed: ${error.toString()}")),
+    );
+  }
+
   static Future<void> launch(
     BuildContext context,
     void Function() onLoggedIn,
@@ -33,18 +41,21 @@ class Auth {
   static Future<void> signup({
     required String email,
     required String password,
-    required Map<String, String> data,
+    required Map<String, dynamic> data,
     required BuildContext context,
     required void Function(FirebaseAuthException e) error,
   }) async {
+    User? createdUser;
+
     try {
-      await AUTH.createUserWithEmailAndPassword(
+      final credential = await AUTH.createUserWithEmailAndPassword(
         email: email,
         password: password,
       );
+      createdUser = credential.user;
 
       String uid = AUTH.currentUser!.uid;
-      FIRESTORE.collection("users").doc(uid).set(data);
+      await FIRESTORE.collection("users").doc(uid).set(data);
 
       profile = await Profile.fromID(uid);
 
@@ -54,7 +65,16 @@ class Auth {
     } on FirebaseAuthException catch (e) {
       error(e);
     } catch (e) {
-      // TODO: Handle other errors
+      if (createdUser != null) {
+        try {
+          await createdUser.delete();
+        } catch (_) {
+          await AUTH.signOut();
+        }
+      }
+
+      if (!context.mounted) return;
+      _showUnexpectedError(context, e);
     }
   }
 
@@ -63,6 +83,7 @@ class Auth {
     required String password,
     required BuildContext context,
     required void Function(FirebaseAuthException e) error,
+    String? expectedAccountType,
   }) async {
     try {
       await AUTH.signInWithEmailAndPassword(email: email, password: password);
@@ -71,13 +92,30 @@ class Auth {
 
       profile = await Profile.fromID(uid);
 
+      if (expectedAccountType != null &&
+          profile.accountType != expectedAccountType) {
+        await AUTH.signOut();
+        error(
+          FirebaseAuthException(
+            code: "wrong-account-type",
+            message:
+                expectedAccountType == "organization"
+                    ? "This account is registered as an individual member."
+                    : "This account is registered as an organization.",
+          ),
+        );
+        return;
+      }
+
       if (context.mounted) {
         Navigator.pushNamed(context, "/");
       }
     } on FirebaseAuthException catch (e) {
       error(e);
     } catch (e) {
-      // TODO: Handle other errors
+      await AUTH.signOut();
+      if (!context.mounted) return;
+      _showUnexpectedError(context, e);
     }
   }
 

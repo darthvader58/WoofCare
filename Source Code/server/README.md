@@ -70,6 +70,42 @@ Imports location data from `org_data.json` into Firebase Firestore.
 
 You can still run the standalone scripts:
 
+### Backfill Privacy Fields
+
+After pulling the latest app changes, run this once so existing Firestore
+documents include the same privacy fields that new app writes now create.
+
+Preview changes:
+
+```bash
+python migrate_privacy_fields.py firebase-credentials.json
+```
+
+Apply changes:
+
+```bash
+python migrate_privacy_fields.py firebase-credentials.json --apply
+```
+
+This updates:
+
+- `users/{uid}.shareProfile` to `true` when missing.
+- `users/{uid}.verified` to `false` when missing. Only trusted Firebase
+  Admin SDK operations should later set this to `true`.
+- `reports/{reportId}.isAnonymous` to `false` when missing.
+- `reports/{reportId}.shareReporterPhone` to `false` when missing.
+- `reports/{reportId}.reporterPhone` to `null` for anonymous or phone-private reports.
+- Legacy exact `reports/{reportId}.latitude` and `.longitude` into
+  `report_locations/{reportId}`.
+- Public report location fields to fuzzed coordinates only:
+  `fuzzedLatitude`, `fuzzedLongitude`, `fuzzedLocation`,
+  `locationPrivacy: "fuzzed"`, `locationPrivacyRadiusMeters`, and
+  `locationPrivacyVersion`.
+- Deprecated public `reports/{reportId}.latitude` and `.longitude` fields are
+  deleted after the exact values are copied into `report_locations/{reportId}`.
+- `conversations/{conversationId}.requesterProfileShared` to `true` when missing.
+- `conversations/{conversationId}.expiresAt` for anonymous report chats missing a 48-hour expiry.
+
 ### Article Scraper CLI
 
 
@@ -144,12 +180,110 @@ articles/
       └── sourceUrl: string
 ```
 
+Privacy-aware app data uses these fields:
+
+```
+users/{uid}
+  ├── shareProfile: boolean
+  ├── verified: boolean default false
+  ├── accountType: string member | organization
+  └── organizationType: string only for organization accounts
+
+reports/{reportId}
+  ├── userID: string
+  ├── reporterName: string
+  ├── reporterEmail: string
+  ├── isAnonymous: boolean
+  ├── shareReporterPhone: boolean
+  ├── reporterPhone: string | null
+  ├── title: string
+  ├── description: string
+  ├── urgency: string
+  ├── fuzzedLatitude: number
+  ├── fuzzedLongitude: number
+  ├── fuzzedLocation:
+  │   ├── latitude: number
+  │   ├── longitude: number
+  │   ├── precisionMeters: number
+  │   ├── method: decimal_grid_v1 | client_fuzz_v1 | random_radius_v1
+  │   └── source: string
+  ├── locationPrivacy: "fuzzed"
+  ├── locationPrivacyRadiusMeters: number
+  ├── locationPrivacyVersion: number
+  └── timestamp: timestamp
+
+report_locations/{reportId}
+  ├── reportId: string
+  ├── reporterId: string
+  ├── latitude: number exact
+  ├── longitude: number exact
+  ├── source: string
+  ├── createdAt: timestamp
+  └── updatedAt: timestamp
+
+report_location_grants/{grantId}
+  ├── reportId: string
+  ├── pathway: org_acceptance | chat_consent
+  ├── status: accepted only for org_acceptance
+  ├── exactLocationGranted: true only for org_acceptance
+  ├── reporterId: string report owner for org_acceptance
+  ├── organizationId: string grantee for org_acceptance
+  ├── granteeUserId: string grantee for chat_consent
+  ├── grantedBy: string report owner for chat_consent
+  ├── chatId: string optional for chat_consent
+  ├── createdAt: timestamp
+  └── updatedAt: timestamp
+
+Grant document IDs are part of the access-control contract because Firestore
+rules cannot query arbitrary grant documents while authorizing an exact-location
+read:
+
+- `org_acceptance`: `{reportId}_{organizationId}`
+- `chat_consent`: `{reportId}_{granteeUserId}_chat_consent`
+
+conversations/{conversationId}
+  ├── participants: string[]
+  ├── isReportChat: boolean
+  ├── reportId: string
+  ├── anonymousReporter: boolean
+  ├── reporterName: string
+  ├── reporterDisplayName: string
+  ├── requesterName: string
+  ├── requesterDisplayName: string
+  ├── requesterProfileShared: boolean
+  └── expiresAt: timestamp only for anonymous report chats
+```
+
 ## Deploying Firestore Rules
+
+Firestore rules live in the Flutter app Firebase config directory:
+
+```
+Source Code/app/firestore.rules
+Source Code/app/firebase.json
+```
+
+Run the privacy migration before deploying the new rules so existing report
+documents no longer expose exact coordinates in the public `reports` collection.
 
 Deploy the security rules to Firebase:
 ```bash
+cd ../app
 firebase deploy --only firestore:rules
 ```
+
+The rules enforce these privacy boundaries:
+
+- Clients may read `reports/{reportId}` only when the report has fuzzed public
+  coordinates and no exact-coordinate fields.
+- Clients may read `report_locations/{reportId}` only when they are the reporter
+  or have a matching `report_location_grants` document.
+- Verified organizations can receive exact location through the
+  `org_acceptance` pathway.
+- Report owners can grant exact location to one helper through the
+  `chat_consent` pathway.
+- Clients cannot create or update their own `users/{uid}.verified` value to
+  `true`; verification must be done by trusted server/Admin SDK code.
 
 ## Notes
 

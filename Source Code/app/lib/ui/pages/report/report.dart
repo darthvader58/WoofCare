@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:location/location.dart';
 import 'package:woofcare/config/colors.dart';
+import 'package:woofcare/services/location_privacy.dart';
 
 import '/config/constants.dart';
 import '/ui/widgets/custom_button.dart';
@@ -35,10 +36,9 @@ class _ReportPageState extends State<ReportPage> {
   bool useCurrentLocation = true;
   // bool dropPin = false;
   bool anonymousReport = false;
+  bool shareReporterPhone = false;
 
   void submitReport() async {
-    CollectionReference reports = FIRESTORE.collection('reports');
-
     double? latitude;
     double? longitude;
 
@@ -70,17 +70,45 @@ class _ReportPageState extends State<ReportPage> {
     longitude = locationData.longitude;
     // }
 
+    if (latitude == null || longitude == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Unable to resolve your current location."),
+            backgroundColor: WoofCareColors.errorMessageColor,
+          ),
+        );
+      }
+      return;
+    }
+
+    final fuzzedLocation = fuzzReportLocation(latitude, longitude);
+
     // Expiry date 2 weeks from now
     DateTime expiryDate = DateTime.now().add(const Duration(days: 14));
 
+    final reportRef = FIRESTORE.collection('reports').doc();
+    final exactLocationRef = FIRESTORE
+        .collection('report_locations')
+        .doc(reportRef.id);
+
+    // Anonymous reports must not carry reporter identity in the public doc;
+    // the rules reject them otherwise.
     Map<String, dynamic> newReportData = {
       'userID': profile.id,
+      'reporterName': anonymousReport ? null : profile.name,
+      'shareReporterPhone': shareReporterPhone,
+      'reporterPhone':
+          !anonymousReport && shareReporterPhone ? profile.phone : null,
+      'reporterEmail': anonymousReport ? null : profile.email,
       'title': _reportTitleController.text,
       'description': _dogDescriptionController.text,
       'location_description': _locationDescriptionController.text,
       'urgency': dropdownValue,
-      'latitude': latitude,
-      'longitude': longitude,
+      'fuzzedLatitude': fuzzedLocation.latitude,
+      'fuzzedLongitude': fuzzedLocation.longitude,
+      'locationPrivacyRadiusMeters': reportLocationFuzzRadiusMeters,
+      'locationPrivacyVersion': 1,
       'expiryDate': Timestamp.fromDate(expiryDate),
       'timestamp': Timestamp.now(),
       'isAnonymous': anonymousReport,
@@ -89,7 +117,16 @@ class _ReportPageState extends State<ReportPage> {
     };
 
     try {
-      await reports.add(newReportData);
+      final batch = FIRESTORE.batch();
+      batch.set(reportRef, newReportData);
+      batch.set(exactLocationRef, {
+        'reportId': reportRef.id,
+        'reporterId': profile.id,
+        'latitude': latitude,
+        'longitude': longitude,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+      await batch.commit();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -115,7 +152,11 @@ class _ReportPageState extends State<ReportPage> {
   Widget build(BuildContext context) {
     return SingleChildScrollView(
       controller: widget.scrollController,
-      padding: const EdgeInsets.only(bottom: 100, top: 20),
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.viewInsetsOf(context).bottom + 120,
+        top: 20,
+      ),
       child: Container(
         color: WoofCareColors.secondaryBackground,
 
@@ -185,6 +226,12 @@ class _ReportPageState extends State<ReportPage> {
                   title: "Submit Anonymously",
                   value: anonymousReport,
                   onChanged: (val) => setState(() => anonymousReport = val),
+                ),
+                const SizedBox(height: 10),
+                _buildSwitchTile(
+                  title: "Share My Phone Number",
+                  value: shareReporterPhone,
+                  onChanged: (val) => setState(() => shareReporterPhone = val),
                 ),
                 const SizedBox(height: 10),
                 CustomTextField(

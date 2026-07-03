@@ -1,0 +1,12 @@
+{
+  "name": "woofcare-firestore-validation",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:rules": "firebase emulators:exec --project woofcare-rules-test --only firestore \"node --test test/firestore-location-privacy.rules.test.js test/firestore-conversations.rules.test.js test/firestore-report-list-leak.rules.test.js test/firestore-posts.rules.test.js\""
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^3.0.0",
+    "firebase": "^10.14.0"
+  }
+}

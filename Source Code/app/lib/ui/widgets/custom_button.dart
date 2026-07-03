@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:woofcare/config/colors.dart';
 
 class CustomButton extends StatelessWidget {
   final String text;
@@ -14,6 +15,7 @@ class CustomButton extends StatelessWidget {
   final double verticalPadding;
   final double horizontalPadding;
   final FontWeight? fontWeight;
+  final IconData? icon;
 
   const CustomButton({
     super.key,
@@ -29,6 +31,7 @@ class CustomButton extends StatelessWidget {
     this.horizontalPadding = 20,
     this.verticalPadding = 20,
     this.fontWeight = FontWeight.bold,
+    this.icon,
   });
 
   @override
@@ -40,6 +43,13 @@ class CustomButton extends StatelessWidget {
       decoration: BoxDecoration(
         color: color,
         borderRadius: BorderRadius.circular(borderRadius),
+        boxShadow: [
+          BoxShadow(
+            color: WoofCareColors.cardShadow,
+            blurRadius: 12,
+            offset: const Offset(0, 6),
+          ),
+        ],
       ),
       child: Material(
         color: Colors.transparent,
@@ -52,12 +62,24 @@ class CustomButton extends StatelessWidget {
               vertical: verticalPadding,
             ),
             child: Center(
-              child: Text(
-                text,
-                style: TextStyle(
-                  fontSize: fontSize,
-                  color: fontColor,
-                  fontWeight: FontWeight.bold,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (icon != null) ...[
+                      Icon(icon, size: (fontSize ?? 18) + 2, color: fontColor),
+                      const SizedBox(width: 8),
+                    ],
+                    Text(
+                      text,
+                      style: TextStyle(
+                        fontSize: fontSize,
+                        color: fontColor,
+                        fontWeight: fontWeight,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),

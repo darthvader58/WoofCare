@@ -84,12 +84,14 @@ class _ProfilePageState extends State<ProfilePage> {
       QuerySnapshot snapshot =
           await FIRESTORE
               .collection('conversations')
-              .where("participants", arrayContains: profile.name)
+              .where("participantIds", arrayContains: profile.id)
               .get();
 
       var conversations = snapshot.docs.where((doc) {
-        List participants = doc["participants"] as List;
-        return participants.contains(name);
+        final data = doc.data() as Map<String, dynamic>? ?? {};
+        if (data['isReportChat'] == true) return false;
+        final participantIds = data['participantIds'] as List? ?? [];
+        return participantIds.contains(widget.user.id);
       });
 
       String chatID;
@@ -99,6 +101,7 @@ class _ProfilePageState extends State<ProfilePage> {
             .add({
               "messages": [],
               "participants": [profile.name, name],
+              "participantIds": [profile.id, widget.user.id],
             });
         chatID = newConvo.id;
       } else {
@@ -213,17 +216,16 @@ class _ProfilePageState extends State<ProfilePage> {
                           children: [
                             // Username
                             SizedBox(
-                              height: 30,
                               width: 300,
-                              child: Text.rich(
-                                TextSpan(
-                                  text: name,
-                                  style: const TextStyle(
-                                    fontFamily: "Roboto",
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 24,
-                                    color: WoofCareColors.primaryTextAndIcons,
-                                  ),
+                              child: Text(
+                                name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontFamily: "Roboto",
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 24,
+                                  color: WoofCareColors.primaryTextAndIcons,
                                 ),
                               ),
                             ),
@@ -234,6 +236,8 @@ class _ProfilePageState extends State<ProfilePage> {
                               child: Text(
                                 role,
                                 textAlign: TextAlign.left,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
                                   fontFamily: "Roboto",
                                   fontWeight: FontWeight.w700,
@@ -679,19 +683,17 @@ class _ProfilePageState extends State<ProfilePage> {
                                                 ),
                                               );
                                             } else {
-                                              setState(() {
-                                                _selOptions.add(selectedFact!);
-                                              });
                                               Navigator.pop(
                                                 context,
-                                              ); // close dialog after adding
+                                                selectedFact,
+                                              );
                                             }
                                           },
                                           style: ElevatedButton.styleFrom(
                                             backgroundColor:
                                                 WoofCareColors.buttonColor,
                                           ),
-                                          child: Text(
+                                          child: const Text(
                                             "Add",
                                             style: TextStyle(
                                               color: WoofCareColors.offWhite,
@@ -703,9 +705,11 @@ class _ProfilePageState extends State<ProfilePage> {
                                   },
                                 );
 
+                                if (newFact == null) return;
+
                                 // Add the chosen fact
                                 setState(() {
-                                  _selOptions.add(newFact!);
+                                  _selOptions.add(newFact);
                                 });
                               },
                             );
@@ -829,7 +833,9 @@ class _FollowBottomSheetState extends State<FollowBottomSheet>
                 width: 50,
                 height: 5,
                 decoration: BoxDecoration(
-                  color: WoofCareColors.primaryTextAndIcons.withOpacity(0.3),
+                  color: WoofCareColors.primaryTextAndIcons.withValues(
+                    alpha: 0.3,
+                  ),
                   borderRadius: BorderRadius.circular(10),
                 ),
               ),
@@ -840,10 +846,7 @@ class _FollowBottomSheetState extends State<FollowBottomSheet>
                 labelColor: WoofCareColors.buttonColor,
                 unselectedLabelColor: WoofCareColors.primaryTextAndIcons,
                 indicatorColor: WoofCareColors.buttonColor,
-                tabs: const [
-                  Tab(text: 'Following'),
-                  Tab(text: 'Followers'),
-                ],
+                tabs: const [Tab(text: 'Following'), Tab(text: 'Followers')],
               ),
 
               // Tab views
@@ -852,7 +855,11 @@ class _FollowBottomSheetState extends State<FollowBottomSheet>
                   controller: _tabController,
                   children: [
                     _buildUserList(_following, scrollController),
-                    _buildUserList(_followers, scrollController, isFollowers: true),
+                    _buildUserList(
+                      _followers,
+                      scrollController,
+                      isFollowers: true,
+                    ),
                   ],
                 ),
               ),
@@ -913,25 +920,27 @@ class _FollowBottomSheetState extends State<FollowBottomSheet>
               color: WoofCareColors.primaryTextAndIcons,
             ),
           ),
-          trailing: isFollowers
-              ? IconButton(
-                  icon: const Icon(Icons.person_add),
-                  color: WoofCareColors.buttonColor,
-                  onPressed: () {
-                    // TODO: Add follow back functionality
-                  },
-                )
-              : null,
+          trailing:
+              isFollowers
+                  ? IconButton(
+                    icon: const Icon(Icons.person_add),
+                    color: WoofCareColors.buttonColor,
+                    onPressed: () {
+                      // TODO: Add follow back functionality
+                    },
+                  )
+                  : null,
           onTap: () {
             // Navigate to user profile page
             Navigator.pop(context);
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => ViewProfilePage(
-                  userName: user['name'],
-                  photoID: user['photoID'],
-                ),
+                builder:
+                    (context) => ViewProfilePage(
+                      userName: user['name'],
+                      photoID: user['photoID'],
+                    ),
               ),
             );
           },
@@ -941,5 +950,55 @@ class _FollowBottomSheetState extends State<FollowBottomSheet>
   }
 }
 
-ViewProfilePage({required userName, required photoID}) {
+class ViewProfilePage extends StatelessWidget {
+  final String userName;
+  final int photoID;
+
+  const ViewProfilePage({
+    super.key,
+    required this.userName,
+    required this.photoID,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<Profile?>(
+      future: Profile.fromName(userName),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            backgroundColor: WoofCareColors.primaryBackground,
+            body: Center(
+              child: CircularProgressIndicator(
+                color: WoofCareColors.buttonColor,
+              ),
+            ),
+          );
+        }
+
+        final loadedProfile = snapshot.data;
+        if (loadedProfile == null) {
+          return Scaffold(
+            backgroundColor: WoofCareColors.primaryBackground,
+            appBar: AppBar(
+              backgroundColor: WoofCareColors.primaryBackground,
+              foregroundColor: WoofCareColors.primaryTextAndIcons,
+            ),
+            body: Center(
+              child: Text(
+                "Profile not found",
+                style: TextStyle(
+                  color: WoofCareColors.primaryTextAndIcons.withValues(
+                    alpha: 0.7,
+                  ),
+                ),
+              ),
+            ),
+          );
+        }
+
+        return ProfilePage(user: loadedProfile);
+      },
+    );
+  }
 }

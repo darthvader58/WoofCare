@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:woofcare/config/colors.dart';
-import 'package:woofcare/config/constants.dart';
 import 'package:woofcare/ui/pages/posts/posts.dart';
+import 'package:woofcare/ui/widgets/woofcare_nav_bar.dart';
 
 import '/ui/pages/export.dart';
 
@@ -11,146 +9,97 @@ class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
   @override
-  State<StatefulWidget> createState() => _HomePageState();
+  State<HomePage> createState() => _HomePageState();
 }
 
 class _HomePageState extends State<HomePage> {
-  int currentPageIndex = 1;
+  int currentPageIndex = 0;
 
-  final List<Widget> pages = [
-    const ConversationsPage(),
-    const MapPage(),
-    const SocialMediaFeed(),
-    const ArticlePage(),
+  final List<Widget> pages = const [
+    MapPage(),
+    ConversationsPage(),
+    SocialMediaFeed(),
+    ArticlePage(),
   ];
 
-  String _getGreeting() {
-    var hour = DateTime.now().hour;
-    if (hour < 12) {
-      return 'Good Morning';
-    }
-    if (hour < 17) {
-      return 'Good Afternoon';
-    }
-    return 'Good Evening';
+  void _openReportSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.78,
+          minChildSize: 0.42,
+          maxChildSize: 0.95,
+          builder: (sheetContext, scrollController) {
+            return Container(
+              decoration: const BoxDecoration(
+                color: WoofCareColors.secondaryBackground,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                border: Border(
+                  top: BorderSide(
+                    color: WoofCareColors.borderOutline,
+                    width: 1.5,
+                  ),
+                ),
+              ),
+              child: Column(
+                children: [
+                  Container(
+                    margin: const EdgeInsets.only(top: 16, bottom: 14),
+                    width: 44,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: WoofCareColors.primaryTextAndIcons.withValues(
+                        alpha: 0.45,
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  const Text(
+                    'Dog Report',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w600,
+                      color: WoofCareColors.primaryTextAndIcons,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Divider(
+                    color: WoofCareColors.primaryTextAndIcons.withValues(
+                      alpha: 0.22,
+                    ),
+                    height: 1,
+                  ),
+                  Expanded(
+                    child: SafeArea(
+                      top: false,
+                      left: false,
+                      right: false,
+                      child: ReportPage(scrollController: scrollController),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: WoofCareColors.secondaryBackground,
-        elevation: 0,
-        toolbarHeight: 80,
-        title: Padding(
-          padding: const EdgeInsets.only(left: 8.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                _getGreeting(),
-                style: GoogleFonts.aBeeZee(
-                  color: WoofCareColors.primaryTextAndIcons.withValues(
-                    alpha: 0.7,
-                  ),
-                  fontSize: 14,
-                  fontWeight: FontWeight.w400,
-                ),
-              ),
-              Text(
-                profile.name,
-                style: GoogleFonts.aBeeZee(
-                  color: WoofCareColors.primaryTextAndIcons,
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-        ),
-        automaticallyImplyLeading: false,
-        shape: Border(
-          bottom: BorderSide(
-            color: WoofCareColors.primaryTextAndIcons.withValues(alpha: 0.1),
-            width: 1,
-          ),
-        ),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 20.0),
-            child: GestureDetector(
-              onTap: () => Navigator.pushNamed(context, "/profile"),
-              child: Container(
-                width: 50,
-                height: 50,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: WoofCareColors.backgroundElementColor,
-                  border: Border.all(
-                    color: WoofCareColors.primaryTextAndIcons,
-                    width: 2,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.1),
-                      blurRadius: 8,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                  image: const DecorationImage(
-                    image: AssetImage(
-                      "assets/images/homePageButtons/ProfileButton.png",
-                    ),
-                    fit: BoxFit.cover,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-      body: pages[currentPageIndex],
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: WoofCareColors.primaryTextAndIcons.withValues(alpha: 0.05),
-          border: Border(
-            top: BorderSide(
-              color: WoofCareColors.primaryTextAndIcons.withValues(alpha: 0.1),
-              width: 1,
-            ),
-          ),
-        ),
-        child: BottomNavigationBar(
-          iconSize: 20,
-          type: BottomNavigationBarType.fixed,
-          currentIndex: currentPageIndex,
-          onTap: (value) {
-            setState(() {
-              currentPageIndex = value;
-            });
-          },
-          items: const <BottomNavigationBarItem>[
-            BottomNavigationBarItem(
-              icon: FaIcon(FontAwesomeIcons.solidComments),
-              label: 'Chats',
-            ),
-            BottomNavigationBarItem(
-              icon: FaIcon(FontAwesomeIcons.solidMap),
-              label: 'Map',
-            ),
-            BottomNavigationBarItem(
-              icon: FaIcon(FontAwesomeIcons.signsPost),
-              label: 'Feed',
-            ),
-            BottomNavigationBarItem(
-              icon: FaIcon(FontAwesomeIcons.bookOpen),
-              label: 'Articles',
-            ),
-          ],
-          backgroundColor: WoofCareColors.secondaryBackground,
-          unselectedItemColor: const Color(0xFFA66E38),
-          selectedItemColor: const Color(0xFF3F2917),
-        ),
+      backgroundColor: WoofCareColors.primaryBackground,
+      extendBody: true,
+      body: IndexedStack(index: currentPageIndex, children: pages),
+      bottomNavigationBar: WoofCareNavBar(
+        currentIndex: currentPageIndex,
+        onTabSelected: (index) => setState(() => currentPageIndex = index),
+        onReportTap: _openReportSheet,
       ),
     );
   }

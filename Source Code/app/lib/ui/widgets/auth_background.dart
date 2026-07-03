@@ -13,7 +13,7 @@ class AuthBackground extends StatelessWidget {
         Container(color: WoofCareColors.primaryBackground),
         Positioned.fill(
           child: Opacity(
-            opacity: 0.4,
+            opacity: 0.28,
             child: Image.asset(
               "assets/images/patterns/BigPawPattern.png",
               repeat: ImageRepeat.repeat,

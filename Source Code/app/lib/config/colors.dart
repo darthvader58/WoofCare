@@ -4,6 +4,7 @@ import 'dart:ui';
 
 class WoofCareColors {
   static const Color gray = Color(0xFFD8D8D8);
+  static const Color gray40 = Color(0x667D6B5D);
   static const Color gray60 = Color(0x99D8D8D8);
   static const Color gray25 = Color(0x40D8D8D8);
   static const Color white60 = Color(0x99FFFFFF);
@@ -25,6 +26,8 @@ class WoofCareColors {
   static const Color focusColor = Color(0xCCFFFFFF);
   static const Color dividerColor = Color(0xAA282828);
   static const Color primaryTextAndIcons = Color(0xFF3F2917);
+  static const Color mutedText = Color(0xFF805832);
+  static const Color cardShadow = Color(0x1A3F2917);
 
   static const Color interactibleText = Color(0xFFA66E38);
   static const Color interactibleTextPressed = Color(0xFF63422C);

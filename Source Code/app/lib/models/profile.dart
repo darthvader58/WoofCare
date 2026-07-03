@@ -8,7 +8,10 @@ class Profile {
   final String email;
   final String role;
   final String phone;
+  final String accountType;
   final DocumentReference reference;
+  final bool verified;
+  bool shareProfile;
   String bio;
   var chats = [];
 
@@ -19,21 +22,33 @@ class Profile {
     required this.role,
     required this.bio,
     required this.phone,
+    this.accountType = "member",
     required this.reference,
+    this.verified = false,
+    this.shareProfile = true,
   });
 
   static Future<Profile> fromID(String id) async {
     final DocumentSnapshot doc =
         await FIRESTORE.collection("users").doc(id).get();
 
+    if (!doc.exists) {
+      throw StateError("No profile document found for signed-in user $id");
+    }
+
+    final data = doc.data() as Map<String, dynamic>? ?? {};
+
     return Profile(
       id: id,
-      name: doc.get("name") as String,
-      email: doc.get("email") as String,
-      role: doc.get("role") as String,
-      bio: doc.get("bio") as String,
-      phone: doc.get("phone") as String,
+      name: data["name"] as String,
+      email: data["email"] as String,
+      role: data["role"] as String,
+      bio: data["bio"] as String,
+      phone: data["phone"] as String,
+      accountType: data["accountType"] as String? ?? "member",
       reference: doc.reference,
+      verified: data["verified"] as bool? ?? false,
+      shareProfile: data["shareProfile"] as bool? ?? true,
     );
   }
 
@@ -47,14 +62,18 @@ class Profile {
 
     if (snapshot.docs.isNotEmpty) {
       final doc = snapshot.docs.first;
+      final data = doc.data() as Map<String, dynamic>? ?? {};
       return Profile(
         id: doc.id,
-        name: doc.get("name") as String,
-        email: doc.get("email") as String,
-        role: doc.get("role") as String,
-        bio: doc.get("bio") as String,
-        phone: doc.get("phone") as String,
+        name: data["name"] as String,
+        email: data["email"] as String,
+        role: data["role"] as String,
+        bio: data["bio"] as String,
+        phone: data["phone"] as String,
+        accountType: data["accountType"] as String? ?? "member",
         reference: doc.reference,
+        verified: data["verified"] as bool? ?? false,
+        shareProfile: data["shareProfile"] as bool? ?? true,
       );
     }
     return null;
@@ -62,7 +81,7 @@ class Profile {
 
   Future<void> updateProfile() async {
     try {
-      await reference.update({'bio': bio});
+      await reference.update({'bio': bio, 'shareProfile': shareProfile});
     } catch (e) {
       // TODO: Handle error appropriately
     }

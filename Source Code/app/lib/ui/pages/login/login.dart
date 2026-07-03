@@ -4,6 +4,7 @@ import 'package:woofcare/config/colors.dart';
 
 import '/config/constants.dart';
 import '/services/auth.dart';
+import '/ui/widgets/auth_account_type_tabs.dart';
 import '/ui/widgets/auth_background.dart';
 import '/ui/widgets/auth_container.dart';
 import '/ui/widgets/custom_button.dart';
@@ -21,7 +22,8 @@ class _LogInPageState extends State<LogInPage> {
   final _passwordTextController = TextEditingController();
   final _errorTextController = TextEditingController();
   var _visibleMessage = false;
-  var _visiblePassword = false;
+  var _hidePassword = true;
+  AuthAccountType _accountType = AuthAccountType.member;
 
   String? errorMessage = "";
   bool rememberMe = false;
@@ -41,7 +43,7 @@ class _LogInPageState extends State<LogInPage> {
   // Toggle the visibility of password
   void _showPassword() {
     setState(() {
-      _visiblePassword = !_visiblePassword;
+      _hidePassword = !_hidePassword;
     });
   }
 
@@ -53,19 +55,40 @@ class _LogInPageState extends State<LogInPage> {
       body: AuthBackground(
         child: Center(
           child: SingleChildScrollView(
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 25.0),
+              padding: EdgeInsets.fromLTRB(
+                25,
+                24,
+                25,
+                MediaQuery.viewInsetsOf(context).bottom + 24,
+              ),
               child: AuthContainer(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
+                    AuthAccountTypeTabs(
+                      selected: _accountType,
+                      onChanged: (type) {
+                        setState(() {
+                          _accountType = type;
+                          _visibleMessage = false;
+                          _errorTextController.clear();
+                        });
+                      },
+                    ),
+
+                    const SizedBox(height: 24),
+
                     //Welcome Back Message
-                    const Text(
+                    Text(
                       textAlign: TextAlign.center,
-                      "Welcome Back to WoofCare!",
-                      style: TextStyle(
+                      _accountType == AuthAccountType.organization
+                          ? "Welcome Back, Organization"
+                          : "Welcome Back to WoofCare!",
+                      style: const TextStyle(
                         color: WoofCareColors.primaryTextAndIcons,
-                        fontSize: 30,
+                        fontSize: 28,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -93,10 +116,13 @@ class _LogInPageState extends State<LogInPage> {
                     CustomTextField(
                       controller: _passwordTextController,
                       hintText: "Password",
-                      obscureText: _visiblePassword,
-                      prefix: Icons.password,
+                      obscureText: _hidePassword,
+                      prefix: Icons.lock,
                       onSuffixTap: () => _showPassword(),
-                      suffix: Icons.visibility,
+                      suffix:
+                          _hidePassword
+                              ? Icons.visibility
+                              : Icons.visibility_off,
                       maxLines: 1,
                     ),
 
@@ -119,11 +145,13 @@ class _LogInPageState extends State<LogInPage> {
                               ),
                               Checkbox(
                                 value: rememberMe,
-                                side: const BorderSide(),
-                                focusColor: Colors.green,
+                                side: const BorderSide(
+                                  color: WoofCareColors.primaryTextAndIcons,
+                                ),
+                                activeColor: WoofCareColors.buttonColor,
                                 onChanged: (bool? value) {
                                   setState(() {
-                                    rememberMe = !rememberMe;
+                                    rememberMe = value ?? false;
                                   });
                                 },
                               ),
@@ -155,12 +183,14 @@ class _LogInPageState extends State<LogInPage> {
                     //Log In Button
                     CustomButton(
                       text: "Log In",
+                      icon: Icons.login,
                       // margin: 30,
                       onTap:
                           () => Auth.login(
                             context: context,
                             email: _emailTextController.text.trim(),
                             password: _passwordTextController.text.trim(),
+                            expectedAccountType: _accountType.name,
                             error: (e) {
                               // If email is not valid, then display error message
                               setState(() {
@@ -176,6 +206,10 @@ class _LogInPageState extends State<LogInPage> {
                                 } else if (e.code == "invalid-credential") {
                                   errorMessage =
                                       "Auth credential is malformed or has expired.";
+                                } else if (e.code == "wrong-account-type") {
+                                  errorMessage = e.message;
+                                } else {
+                                  errorMessage = e.message;
                                 }
 
                                 _errorTextController.text = errorMessage ?? '';

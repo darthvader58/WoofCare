@@ -1,0 +1,406 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function userPath(uid) {
+      return /databases/$(database)/documents/users/$(uid);
+    }
+
+    function reportPath(reportId) {
+      return /databases/$(database)/documents/reports/$(reportId);
+    }
+
+    function reportExists(reportId) {
+      return exists(reportPath(reportId));
+    }
+
+    function reportExistsAfter(reportId) {
+      return existsAfter(reportPath(reportId));
+    }
+
+    function reportOwnerUid(reportId) {
+      return get(reportPath(reportId)).data.userID;
+    }
+
+    function reportOwnerUidAfter(reportId) {
+      return getAfter(reportPath(reportId)).data.userID;
+    }
+
+    function isVerifiedOrganization(uid) {
+      return signedIn()
+        && exists(userPath(uid))
+        && get(userPath(uid)).data.accountType == "organization"
+        && get(userPath(uid)).data.verified == true;
+    }
+
+    function isValidCoordinatePair(latitude, longitude) {
+      return latitude is number
+        && longitude is number
+        && latitude >= -90
+        && latitude <= 90
+        && longitude >= -180
+        && longitude <= 180;
+    }
+
+    function isValidFuzzedLocationMap(location) {
+      return location is map
+        && location.keys().hasOnly([
+          "latitude",
+          "longitude",
+          "precisionMeters",
+          "method",
+          "source",
+          "updatedAt",
+        ])
+        && location.keys().hasAll([
+          "latitude",
+          "longitude",
+          "precisionMeters",
+          "method",
+        ])
+        && isValidCoordinatePair(location.latitude, location.longitude)
+        && location.precisionMeters is int
+        && location.precisionMeters >= 100
+        && location.method in ["decimal_grid_v1", "client_fuzz_v1", "random_radius_v1"];
+    }
+
+    function hasValidPublicReportLocation(data) {
+      return data.keys().hasAll(["fuzzedLatitude", "fuzzedLongitude"])
+        && isValidCoordinatePair(data.fuzzedLatitude, data.fuzzedLongitude)
+        && (
+          !data.keys().hasAny(["locationPrivacy"])
+          || data.locationPrivacy == "fuzzed"
+        )
+        && (
+          !data.keys().hasAny(["locationPrivacyRadiusMeters"])
+          || (
+            data.locationPrivacyRadiusMeters is int
+            && data.locationPrivacyRadiusMeters >= 100
+          )
+        )
+        && (
+          !data.keys().hasAny(["fuzzedLocation"])
+          || (
+            isValidFuzzedLocationMap(data.fuzzedLocation)
+            && data.fuzzedLocation.latitude == data.fuzzedLatitude
+            && data.fuzzedLocation.longitude == data.fuzzedLongitude
+          )
+        )
+        && !data.keys().hasAny([
+          "exactLatitude",
+          "exactLongitude",
+          "exactLocation",
+          "exactCoordinates",
+          "geoPoint",
+          "coordinates",
+        ])
+        && (
+          !data.keys().hasAny(["latitude", "longitude"])
+          || (
+            data.keys().hasAll(["latitude", "longitude"])
+            && data.latitude == data.fuzzedLatitude
+            && data.longitude == data.fuzzedLongitude
+          )
+        );
+    }
+
+    function userVerifiedIsClientSafeOnCreate(data) {
+      return !data.keys().hasAny(["verified"]) || data.verified == false;
+    }
+
+    // Anonymous reports must not carry reporter identity in the public doc.
+    function reportHidesReporterIdentityWhenAnonymous(data) {
+      return data.get("isAnonymous", false) != true
+        || (
+          (!data.keys().hasAny(["reporterName"]) || data.reporterName == null)
+          && (!data.keys().hasAny(["reporterEmail"]) || data.reporterEmail == null)
+          && (!data.keys().hasAny(["reporterPhone"]) || data.reporterPhone == null)
+        );
+    }
+
+    function isConversationParticipant(data) {
+      return signedIn()
+        && data.keys().hasAny(["participantIds"])
+        && data.participantIds is list
+        && request.auth.uid in data.participantIds;
+    }
+
+    // Fields that define who a conversation is between and its privacy state
+    // can never be rewritten after creation.
+    function conversationCoreUnchanged() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+        "participantIds",
+        "isReportChat",
+        "reportId",
+        "anonymousReporter",
+        "reporterUserId",
+        "requesterUserId",
+      ]);
+    }
+
+    function isPostAuthor(data) {
+      return signedIn()
+        && data.email == request.auth.token.email;
+    }
+
+    // Non-authors may only add or remove their own email in the likes array.
+    function likesToggleOnly() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(["likes"])
+        && (
+          request.resource.data.diff(resource.data).affectedKeys().size() == 0
+          || (
+            request.resource.data.likes.toSet().difference(resource.data.likes.toSet())
+              == [request.auth.token.email].toSet()
+            && resource.data.likes.toSet().difference(request.resource.data.likes.toSet()).size() == 0
+          )
+          || (
+            resource.data.likes.toSet().difference(request.resource.data.likes.toSet())
+              == [request.auth.token.email].toSet()
+            && request.resource.data.likes.toSet().difference(resource.data.likes.toSet()).size() == 0
+          )
+        );
+    }
+
+    function userVerifiedUnchangedOnUpdate() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(["verified"]);
+    }
+
+    function exactLocationReporterMatches(data, uid) {
+      return (
+          data.keys().hasAny(["reporterId"])
+          && data.reporterId == uid
+        )
+        || (
+          data.keys().hasAny(["reporterUid"])
+          && data.reporterUid == uid
+        );
+    }
+
+    function validExactLocationData(data, reportId) {
+      return data.keys().hasOnly([
+          "reportId",
+          "reporterId",
+          "reporterUid",
+          "latitude",
+          "longitude",
+          "address",
+          "source",
+          "createdAt",
+          "updatedAt",
+        ])
+        && data.keys().hasAll(["reportId", "latitude", "longitude"])
+        && data.reportId == reportId
+        && isValidCoordinatePair(data.latitude, data.longitude)
+        && (
+          data.keys().hasAny(["reporterId"])
+          || data.keys().hasAny(["reporterUid"])
+        );
+    }
+
+    function activeOrgAcceptanceGrantExists(reportId, uid) {
+      return signedIn()
+        && isVerifiedOrganization(uid)
+        && exists(/databases/$(database)/documents/report_location_grants/$(reportId + "_" + uid))
+        && get(/databases/$(database)/documents/report_location_grants/$(reportId + "_" + uid)).data.reportId == reportId
+        && get(/databases/$(database)/documents/report_location_grants/$(reportId + "_" + uid)).data.organizationId == uid
+        && get(/databases/$(database)/documents/report_location_grants/$(reportId + "_" + uid)).data.status == "accepted"
+        && get(/databases/$(database)/documents/report_location_grants/$(reportId + "_" + uid)).data.exactLocationGranted == true
+        && (
+          !get(/databases/$(database)/documents/report_location_grants/$(reportId + "_" + uid)).data.keys().hasAny(["pathway"])
+          || get(/databases/$(database)/documents/report_location_grants/$(reportId + "_" + uid)).data.pathway == "org_acceptance"
+        );
+    }
+
+    function activeChatConsentGrantExists(reportId, uid) {
+      return signedIn()
+        && exists(/databases/$(database)/documents/report_location_grants/$(reportId + "_" + uid + "_chat_consent"))
+        && get(/databases/$(database)/documents/report_location_grants/$(reportId + "_" + uid + "_chat_consent")).data.reportId == reportId
+        && get(/databases/$(database)/documents/report_location_grants/$(reportId + "_" + uid + "_chat_consent")).data.granteeUserId == uid
+        && get(/databases/$(database)/documents/report_location_grants/$(reportId + "_" + uid + "_chat_consent")).data.pathway == "chat_consent";
+    }
+
+    function canReadExactLocation(reportId) {
+      return signedIn()
+        && (
+          exactLocationReporterMatches(resource.data, request.auth.uid)
+          || activeOrgAcceptanceGrantExists(reportId, request.auth.uid)
+          || activeChatConsentGrantExists(reportId, request.auth.uid)
+        );
+    }
+
+    function validOrgAcceptanceGrant(data) {
+      return data.keys().hasAll([
+          "reportId",
+          "reporterId",
+          "organizationId",
+          "status",
+          "exactLocationGranted",
+        ])
+        && reportExists(data.reportId)
+        && data.reporterId == reportOwnerUid(data.reportId)
+        && data.organizationId == request.auth.uid
+        && data.status == "accepted"
+        && data.exactLocationGranted == true
+        && (
+          !data.keys().hasAny(["pathway"])
+          || data.pathway == "org_acceptance"
+        )
+        && isVerifiedOrganization(request.auth.uid);
+    }
+
+    function validChatConsentGrant(data) {
+      return data.keys().hasAll([
+          "reportId",
+          "granteeUserId",
+          "pathway",
+          "grantedBy",
+        ])
+        && reportExists(data.reportId)
+        && data.pathway == "chat_consent"
+        && data.grantedBy == request.auth.uid
+        && data.grantedBy == reportOwnerUid(data.reportId)
+        && data.granteeUserId is string
+        && data.granteeUserId != data.grantedBy;
+    }
+
+    function grantReadableBy(data, uid) {
+      return (
+          data.keys().hasAny(["reporterId"])
+          && data.reporterId == uid
+        )
+        || (
+          data.keys().hasAny(["grantedBy"])
+          && data.grantedBy == uid
+        )
+        || (
+          data.keys().hasAny(["granteeUserId"])
+          && data.granteeUserId == uid
+        )
+        || (
+          data.keys().hasAny(["organizationId"])
+          && data.organizationId == uid
+        );
+    }
+
+    match /users/{uid} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && request.auth.uid == uid
+        && userVerifiedIsClientSafeOnCreate(request.resource.data);
+      allow update: if signedIn()
+        && request.auth.uid == uid
+        && userVerifiedUnchangedOnUpdate();
+      allow delete: if false;
+    }
+
+    match /reports/{reportId} {
+      allow get: if hasValidPublicReportLocation(resource.data);
+      // List queries cannot filter per-document conditions, so listing is
+      // only allowed when the client query proves every result carries the
+      // privacy-version marker. Writes below guarantee marker == clean doc,
+      // and the server migration stamps it after stripping exact fields, so
+      // unmigrated legacy docs (which may leak exact coordinates) are never
+      // returned by a permitted list query.
+      allow list: if resource.data.locationPrivacyVersion == 1;
+      allow create: if signedIn()
+        && request.resource.data.userID == request.auth.uid
+        && request.resource.data.locationPrivacyVersion == 1
+        && hasValidPublicReportLocation(request.resource.data)
+        && reportHidesReporterIdentityWhenAnonymous(request.resource.data);
+      allow update: if signedIn()
+        && resource.data.userID == request.auth.uid
+        && request.resource.data.userID == resource.data.userID
+        && request.resource.data.locationPrivacyVersion == 1
+        && hasValidPublicReportLocation(request.resource.data)
+        && reportHidesReporterIdentityWhenAnonymous(request.resource.data);
+      allow delete: if signedIn() && resource.data.userID == request.auth.uid;
+    }
+
+    match /report_locations/{reportId} {
+      allow read: if canReadExactLocation(reportId);
+      allow create: if signedIn()
+        && validExactLocationData(request.resource.data, reportId)
+        && exactLocationReporterMatches(request.resource.data, request.auth.uid)
+        && reportExistsAfter(reportId)
+        && reportOwnerUidAfter(reportId) == request.auth.uid;
+      allow update: if signedIn()
+        && exactLocationReporterMatches(resource.data, request.auth.uid)
+        && validExactLocationData(request.resource.data, reportId)
+        && exactLocationReporterMatches(request.resource.data, request.auth.uid)
+        && request.resource.data.reportId == resource.data.reportId;
+      allow delete: if signedIn() && exactLocationReporterMatches(resource.data, request.auth.uid);
+    }
+
+    match /report_location_grants/{grantId} {
+      allow read: if signedIn()
+        && grantReadableBy(resource.data, request.auth.uid);
+      allow create, update: if signedIn()
+        && (
+          (
+            validOrgAcceptanceGrant(request.resource.data)
+            && grantId == request.resource.data.reportId + "_" + request.resource.data.organizationId
+          )
+          || (
+            validChatConsentGrant(request.resource.data)
+            && grantId == request.resource.data.reportId + "_" + request.resource.data.granteeUserId + "_chat_consent"
+          )
+        );
+      allow delete: if false;
+    }
+
+    match /articles/{articleId} {
+      allow read: if true;
+      // Articles are seeded by administrators, never by app clients.
+      allow write: if false;
+    }
+
+    match /locations/{locationId} {
+      allow read: if true;
+      allow write: if signedIn();
+    }
+
+    match /posts/{postId} {
+      allow read: if true;
+      allow create: if isPostAuthor(request.resource.data)
+        && request.resource.data.likes is list
+        && request.resource.data.likes.size() == 0;
+      allow update: if signedIn()
+        && (isPostAuthor(resource.data) || likesToggleOnly());
+      allow delete: if isPostAuthor(resource.data);
+    }
+
+    match /conversations/{conversationId} {
+      allow get: if isConversationParticipant(resource.data);
+      // List rules must stay provable from the query alone: an
+      // array-contains filter on the caller's own uid satisfies this.
+      allow list: if signedIn()
+        && request.auth.uid in resource.data.participantIds;
+      allow create: if isConversationParticipant(request.resource.data)
+        && request.resource.data.participantIds.size() >= 2;
+      allow update: if isConversationParticipant(resource.data)
+        && conversationCoreUnchanged();
+      allow delete: if false;
+
+      match /messages/{messageId} {
+        function parentConversation() {
+          return get(/databases/$(database)/documents/conversations/$(conversationId)).data;
+        }
+
+        allow read: if signedIn()
+          && request.auth.uid in parentConversation().participantIds;
+        allow create: if signedIn()
+          && request.auth.uid in parentConversation().participantIds
+          && request.resource.data.senderId == request.auth.uid;
+        allow update, delete: if false;
+      }
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
