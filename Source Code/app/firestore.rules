@@ -147,6 +147,12 @@ service cloud.firestore {
         && data.email == request.auth.token.email;
     }
 
+    function validPostMediaFields(data) {
+      return (!data.keys().hasAny(["images"]) || (data.images is list && data.images.size() <= 6))
+        && (!data.keys().hasAny(["videoUrl"]) || data.videoUrl is string || data.videoUrl == null)
+        && (!data.keys().hasAny(["link"]) || data.link is string || data.link == null);
+    }
+
     // Non-authors may only add or remove their own email in the likes array.
     function likesToggleOnly() {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(["likes"])
@@ -367,9 +373,13 @@ service cloud.firestore {
       allow read: if true;
       allow create: if isPostAuthor(request.resource.data)
         && request.resource.data.likes is list
-        && request.resource.data.likes.size() == 0;
+        && request.resource.data.likes.size() == 0
+        && validPostMediaFields(request.resource.data);
       allow update: if signedIn()
-        && (isPostAuthor(resource.data) || likesToggleOnly());
+        && (
+          (isPostAuthor(resource.data) && validPostMediaFields(request.resource.data))
+          || likesToggleOnly()
+        );
       allow delete: if isPostAuthor(resource.data);
     }
 
