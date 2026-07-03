@@ -92,12 +92,15 @@ class _ReportPageState extends State<ReportPage> {
         .collection('report_locations')
         .doc(reportRef.id);
 
+    // Anonymous reports must not carry reporter identity in the public doc;
+    // the rules reject them otherwise.
     Map<String, dynamic> newReportData = {
       'userID': profile.id,
-      'reporterName': profile.name,
+      'reporterName': anonymousReport ? null : profile.name,
       'shareReporterPhone': shareReporterPhone,
-      'reporterPhone': shareReporterPhone ? profile.phone : null,
-      'reporterEmail': profile.email,
+      'reporterPhone':
+          !anonymousReport && shareReporterPhone ? profile.phone : null,
+      'reporterEmail': anonymousReport ? null : profile.email,
       'title': _reportTitleController.text,
       'description': _dogDescriptionController.text,
       'location_description': _locationDescriptionController.text,
@@ -105,6 +108,7 @@ class _ReportPageState extends State<ReportPage> {
       'fuzzedLatitude': fuzzedLocation.latitude,
       'fuzzedLongitude': fuzzedLocation.longitude,
       'locationPrivacyRadiusMeters': reportLocationFuzzRadiusMeters,
+      'locationPrivacyVersion': 1,
       'expiryDate': Timestamp.fromDate(expiryDate),
       'timestamp': Timestamp.now(),
       'isAnonymous': anonymousReport,

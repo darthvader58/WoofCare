@@ -314,11 +314,8 @@ class _MapPageState extends State<MapPage> {
   }
 
   Future<void> _startChatWithReporter(Map<String, dynamic> markerData) async {
-    final reporterName =
-        (markerData['actualReporterName'] ?? markerData['reporterName'])
-            ?.toString()
-            .trim();
-    if (reporterName == null || reporterName.isEmpty) {
+    final reporterUserId = markerData['userReported']?.toString().trim();
+    if (reporterUserId == null || reporterUserId.isEmpty) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Reporter profile is unavailable')),
@@ -326,7 +323,7 @@ class _MapPageState extends State<MapPage> {
       return;
     }
 
-    if (reporterName == profile.name) {
+    if (reporterUserId == profile.id) {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
@@ -337,36 +334,47 @@ class _MapPageState extends State<MapPage> {
     final snapshot =
         await FIRESTORE
             .collection('conversations')
-            .where('participants', arrayContains: profile.name)
+            .where('participantIds', arrayContains: profile.id)
             .get();
 
     final conversations =
         snapshot.docs.where((doc) {
           final data = doc.data();
-          final participants = data['participants'] as List? ?? [];
-          return participants.contains(reporterName) &&
+          final participantIds = data['participantIds'] as List? ?? [];
+          return participantIds.contains(reporterUserId) &&
               data['isReportChat'] == true &&
               data['reportId'] == markerData['id'];
         }).toList();
 
     final isAnonymous = markerData['isAnonymous'] == true;
+    final reporterName =
+        (markerData['actualReporterName'] ?? markerData['reporterName'])
+            ?.toString()
+            .trim();
     final requesterDisplayName =
         profile.shareProfile ? profile.name : 'Anonymous User';
     final reporterDisplayName =
-        isAnonymous ? 'Anonymous Reporter' : reporterName;
+        isAnonymous
+            ? 'Anonymous Reporter'
+            : (reporterName == null || reporterName.isEmpty
+                ? 'Reporter'
+                : reporterName);
     final existingData =
         conversations.isNotEmpty ? conversations.first.data() : null;
 
+    // Real names are never stored for parties that chose privacy; the
+    // conversation doc is readable by the other participant.
     final conversationData = {
       'messages': [],
-      'participants': [profile.name, reporterName],
+      'participants': [requesterDisplayName, reporterDisplayName],
+      'participantIds': [profile.id, reporterUserId],
       'isReportChat': true,
       'reportId': markerData['id'],
       'anonymousReporter': isAnonymous,
-      'reporterName': reporterName,
+      'reporterName': isAnonymous ? null : reporterName,
       'reporterDisplayName': reporterDisplayName,
-      'reporterUserId': markerData['userReported'],
-      'requesterName': profile.name,
+      'reporterUserId': reporterUserId,
+      'requesterName': profile.shareProfile ? profile.name : null,
       'requesterDisplayName': requesterDisplayName,
       'requesterUserId': profile.id,
       'requesterProfileShared': profile.shareProfile,
@@ -820,7 +828,14 @@ class _MapPageState extends State<MapPage> {
 
     List<QueryDocumentSnapshot> reportDocs;
     try {
-      reportDocs = (await FIRESTORE.collection("reports").get()).docs;
+      // Only privacy-migrated reports are listable; the rules deny broader
+      // list queries so unmigrated docs can never leak exact coordinates.
+      reportDocs =
+          (await FIRESTORE
+                  .collection("reports")
+                  .where('locationPrivacyVersion', isEqualTo: 1)
+                  .get())
+              .docs;
     } on FirebaseException catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -859,7 +874,10 @@ class _MapPageState extends State<MapPage> {
         final displayLongitude =
             exactLocation?.longitude ?? publicLocation.longitude;
 
-        if ((reporterName == null ||
+        // Never resolve identity from the users collection for anonymous
+        // reports — that would resurrect the name the reporter chose to hide.
+        if (!isAnonymous &&
+            (reporterName == null ||
                 (shareReporterPhone && reporterPhone == null)) &&
             reporterId != null &&
             reporterId.isNotEmpty) {

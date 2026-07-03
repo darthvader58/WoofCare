@@ -104,7 +104,7 @@ class _ConversationsPageState extends State<ConversationsPage> {
                 stream:
                     FIRESTORE
                         .collection("conversations")
-                        .where("participants", arrayContains: profile.name)
+                        .where("participantIds", arrayContains: profile.id)
                         .snapshots(),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
@@ -192,18 +192,18 @@ class _ConversationsPageState extends State<ConversationsPage> {
     final data = conversation.data() as Map<String, dynamic>?;
 
     if (data?['isReportChat'] == true) {
-      final reporterName = data?['reporterName']?.toString();
-      final requesterName = data?['requesterName']?.toString();
+      final reporterUserId = data?['reporterUserId']?.toString();
+      final requesterUserId = data?['requesterUserId']?.toString();
 
-      if (profile.name == reporterName) {
+      if (profile.id == reporterUserId) {
         return data?['requesterDisplayName']?.toString() ?? 'Anonymous User';
       }
 
-      if (profile.name == requesterName) {
+      if (profile.id == requesterUserId) {
         return data?['reporterDisplayName']?.toString() ??
             (data?['anonymousReporter'] == true
                 ? 'Anonymous Reporter'
-                : reporterName ?? 'Reporter');
+                : data?['reporterName']?.toString() ?? 'Reporter');
       }
     }
 
@@ -361,10 +361,17 @@ class SearchBottomSheet extends StatefulWidget {
   State<SearchBottomSheet> createState() => _SearchBottomSheetState();
 }
 
+class _UserSearchResult {
+  final String id;
+  final String name;
+
+  const _UserSearchResult({required this.id, required this.name});
+}
+
 class _SearchBottomSheetState extends State<SearchBottomSheet> {
   final TextEditingController searchController = TextEditingController();
-  List<String> searchResults = [];
-  String? selectedUser;
+  List<_UserSearchResult> searchResults = [];
+  _UserSearchResult? selectedUser;
 
   @override
   void dispose() {
@@ -387,23 +394,33 @@ class _SearchBottomSheetState extends State<SearchBottomSheet> {
                 query.toLowerCase(),
               ),
             )
-            .map((user) => user["name"].toString())
+            .map(
+              (user) => _UserSearchResult(
+                id: user.id,
+                name: user["name"].toString(),
+              ),
+            )
             .toList();
 
     if (!mounted) return;
     setState(() => searchResults = matches);
   }
 
-  Future<void> startChat(BuildContext context, String selectedUser) async {
+  Future<void> startChat(
+    BuildContext context,
+    _UserSearchResult selectedUser,
+  ) async {
     final snapshot =
         await FirebaseFirestore.instance
             .collection('conversations')
-            .where("participants", arrayContains: profile.name)
+            .where("participantIds", arrayContains: profile.id)
             .get();
 
     final conversations = snapshot.docs.where((doc) {
-      final participants = doc["participants"] as List;
-      return participants.contains(selectedUser);
+      final data = doc.data();
+      if (data['isReportChat'] == true) return false;
+      final participantIds = data['participantIds'] as List? ?? [];
+      return participantIds.contains(selectedUser.id);
     });
 
     final chatID =
@@ -411,7 +428,8 @@ class _SearchBottomSheetState extends State<SearchBottomSheet> {
             ? (await FirebaseFirestore.instance.collection("conversations").add(
               {
                 "messages": [],
-                "participants": [profile.name, selectedUser],
+                "participants": [profile.name, selectedUser.name],
+                "participantIds": [profile.id, selectedUser.id],
               },
             )).id
             : conversations.first.id;
@@ -422,7 +440,7 @@ class _SearchBottomSheetState extends State<SearchBottomSheet> {
     Navigator.pushNamed(
       context,
       '/chat',
-      arguments: {'chatID': chatID, 'participant': selectedUser},
+      arguments: {'chatID': chatID, 'participant': selectedUser.name},
     );
   }
 
@@ -534,7 +552,7 @@ class _SearchBottomSheetState extends State<SearchBottomSheet> {
                         itemCount: searchResults.length,
                         itemBuilder: (context, index) {
                           final user = searchResults[index];
-                          final isSelected = user == selectedUser;
+                          final isSelected = user.id == selectedUser?.id;
 
                           return Container(
                             margin: const EdgeInsets.symmetric(vertical: 6),
@@ -578,7 +596,7 @@ class _SearchBottomSheetState extends State<SearchBottomSheet> {
                                         : WoofCareColors.buttonColor,
                               ),
                               title: Text(
-                                user,
+                                user.name,
                                 style: const TextStyle(
                                   fontSize: 16,
                                   color: WoofCareColors.primaryTextAndIcons,

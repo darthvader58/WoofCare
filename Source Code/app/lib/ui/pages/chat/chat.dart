@@ -19,6 +19,7 @@ class _ChatPageState extends State<ChatPage> {
   final TextEditingController _messageController = TextEditingController();
   late String chatID;
   bool _isSendButtonDisabled = true;
+  Map<String, dynamic> _conversationData = {};
 
   @override
   void initState() {
@@ -49,6 +50,7 @@ class _ChatPageState extends State<ChatPage> {
       stream: FIRESTORE.collection("conversations").doc(chatID).snapshots(),
       builder: (context, snapshot) {
         final data = snapshot.data?.data() as Map<String, dynamic>? ?? {};
+        _conversationData = data;
         return _buildChatScaffold(context, participant, data);
       },
     );
@@ -190,19 +192,19 @@ class _ChatPageState extends State<ChatPage> {
     Map<String, dynamic> conversationData,
   ) {
     if (conversationData['isReportChat'] == true) {
-      final reporterName = conversationData['reporterName']?.toString();
-      final requesterName = conversationData['requesterName']?.toString();
+      final reporterUserId = conversationData['reporterUserId']?.toString();
+      final requesterUserId = conversationData['requesterUserId']?.toString();
 
-      if (profile.name == reporterName) {
+      if (profile.id == reporterUserId) {
         return conversationData['requesterDisplayName']?.toString() ??
             'Anonymous User';
       }
 
-      if (profile.name == requesterName) {
+      if (profile.id == requesterUserId) {
         return conversationData['reporterDisplayName']?.toString() ??
             (conversationData['anonymousReporter'] == true
                 ? 'Anonymous Reporter'
-                : reporterName ?? fallback);
+                : conversationData['reporterName']?.toString() ?? fallback);
       }
     }
 
@@ -217,19 +219,19 @@ class _ChatPageState extends State<ChatPage> {
     if (_isAnonymousDisplay(displayName)) return null;
 
     if (conversationData['isReportChat'] == true) {
-      final reporterName = conversationData['reporterName']?.toString();
-      final requesterName = conversationData['requesterName']?.toString();
+      final reporterUserId = conversationData['reporterUserId']?.toString();
+      final requesterUserId = conversationData['requesterUserId']?.toString();
 
-      if (profile.name == reporterName) {
+      if (profile.id == reporterUserId) {
         return conversationData['requesterProfileShared'] == true
-            ? requesterName
+            ? conversationData['requesterName']?.toString()
             : null;
       }
 
-      if (profile.name == requesterName) {
+      if (profile.id == requesterUserId) {
         return conversationData['anonymousReporter'] == true
             ? null
-            : reporterName;
+            : conversationData['reporterName']?.toString();
       }
     }
 
@@ -243,13 +245,30 @@ class _ChatPageState extends State<ChatPage> {
   void submit(BuildContext context) {
     FocusScope.of(context).unfocus();
 
+    // Store the privacy-appropriate display name so the raw message doc never
+    // carries a real name the sender chose to hide; identity checks use
+    // senderId, which the rules require to match the authenticated uid.
+    String senderName = profile.name;
+    if (_conversationData['isReportChat'] == true) {
+      final reporterUserId = _conversationData['reporterUserId']?.toString();
+      final requesterUserId = _conversationData['requesterUserId']?.toString();
+      if (profile.id == reporterUserId &&
+          _conversationData['anonymousReporter'] == true) {
+        senderName = 'Anonymous Reporter';
+      } else if (profile.id == requesterUserId &&
+          _conversationData['requesterProfileShared'] != true) {
+        senderName = 'Anonymous User';
+      }
+    }
+
     FIRESTORE
         .collection("conversations")
         .doc(chatID)
         .collection("messages")
         .add({
           "text": _messageController.text.trim(),
-          "sender": profile.name,
+          "sender": senderName,
+          "senderId": profile.id,
           "time": Timestamp.now(),
         });
 
@@ -285,30 +304,28 @@ class _ReportLocationConsentPanelState
     }
 
     final reportId = widget.conversationData['reportId']?.toString().trim();
-    final reporterName =
-        widget.conversationData['reporterName']?.toString().trim();
-    final requesterName =
-        widget.conversationData['requesterName']?.toString().trim();
+    final reporterUserId =
+        widget.conversationData['reporterUserId']?.toString().trim();
     final requesterUserId =
         widget.conversationData['requesterUserId']?.toString().trim();
 
-    if (reportId == null ||
-        reportId.isEmpty ||
-        reporterName == null ||
-        reporterName.isEmpty ||
-        requesterName == null ||
-        requesterName.isEmpty) {
+    if (reportId == null || reportId.isEmpty) {
       return const SizedBox.shrink();
     }
 
-    final isReporter = profile.name == reporterName;
-    final isRequester = profile.name == requesterName;
+    final isReporter =
+        reporterUserId != null &&
+        reporterUserId.isNotEmpty &&
+        profile.id == reporterUserId;
+    final isRequester =
+        requesterUserId != null &&
+        requesterUserId.isNotEmpty &&
+        profile.id == requesterUserId;
     if (!isReporter && !isRequester) {
       return const SizedBox.shrink();
     }
 
-    final contextKey =
-        '${widget.chatId}|$reportId|${requesterUserId ?? requesterName}';
+    final contextKey = '${widget.chatId}|$reportId|$requesterUserId';
     if (_grantContextKey != contextKey) {
       _grantContextKey = contextKey;
       _grantContextFuture = _loadGrantContext(
@@ -704,13 +721,18 @@ class _Messages extends StatelessWidget {
         final List<QueryDocumentSnapshot> docs = snapshot.data!.docs;
         final List<_Message> messages = [];
         for (final QueryDocumentSnapshot doc in docs) {
-          final sender = doc.get("sender").toString();
+          final data = doc.data() as Map<String, dynamic>? ?? {};
+          final sender = data['sender']?.toString() ?? '';
+          final senderId = data['senderId']?.toString();
           messages.add(
             _Message(
-              text: doc.get("text"),
-              sender: _senderDisplayName(sender),
-              time: doc.get("time"),
-              isSelf: profile.name == sender,
+              text: data['text']?.toString() ?? '',
+              sender: _senderDisplayName(sender, senderId),
+              time: data['time'] as Timestamp,
+              isSelf:
+                  senderId != null
+                      ? senderId == profile.id
+                      : profile.name == sender,
             ),
           );
         }
@@ -726,20 +748,29 @@ class _Messages extends StatelessWidget {
     );
   }
 
-  String _senderDisplayName(String sender) {
+  String _senderDisplayName(String sender, String? senderId) {
     if (conversationData['isReportChat'] != true) {
       return sender;
     }
 
+    final reporterUserId = conversationData['reporterUserId']?.toString();
+    final requesterUserId = conversationData['requesterUserId']?.toString();
+    // Legacy messages carry only a real-name sender; keep masking them too.
     final reporterName = conversationData['reporterName']?.toString();
     final requesterName = conversationData['requesterName']?.toString();
 
-    if (sender == reporterName &&
-        conversationData['anonymousReporter'] == true) {
+    final isReporterMessage =
+        senderId != null ? senderId == reporterUserId : sender == reporterName;
+    final isRequesterMessage =
+        senderId != null
+            ? senderId == requesterUserId
+            : sender == requesterName;
+
+    if (isReporterMessage && conversationData['anonymousReporter'] == true) {
       return 'Anonymous Reporter';
     }
 
-    if (sender == requesterName &&
+    if (isRequesterMessage &&
         conversationData['requesterProfileShared'] != true) {
       return 'Anonymous User';
     }

@@ -84,12 +84,14 @@ class _ProfilePageState extends State<ProfilePage> {
       QuerySnapshot snapshot =
           await FIRESTORE
               .collection('conversations')
-              .where("participants", arrayContains: profile.name)
+              .where("participantIds", arrayContains: profile.id)
               .get();
 
       var conversations = snapshot.docs.where((doc) {
-        List participants = doc["participants"] as List;
-        return participants.contains(name);
+        final data = doc.data() as Map<String, dynamic>? ?? {};
+        if (data['isReportChat'] == true) return false;
+        final participantIds = data['participantIds'] as List? ?? [];
+        return participantIds.contains(widget.user.id);
       });
 
       String chatID;
@@ -99,6 +101,7 @@ class _ProfilePageState extends State<ProfilePage> {
             .add({
               "messages": [],
               "participants": [profile.name, name],
+              "participantIds": [profile.id, widget.user.id],
             });
         chatID = newConvo.id;
       } else {
