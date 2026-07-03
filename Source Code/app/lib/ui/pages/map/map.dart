@@ -1778,10 +1778,17 @@ class _MapToolbar extends StatelessWidget {
   }
 }
 
-class _ReportFab extends StatelessWidget {
+class _ReportFab extends StatefulWidget {
   final VoidCallback onTap;
 
   const _ReportFab({required this.onTap});
+
+  @override
+  State<_ReportFab> createState() => _ReportFabState();
+}
+
+class _ReportFabState extends State<_ReportFab> {
+  bool _pressed = false;
 
   @override
   Widget build(BuildContext context) {
@@ -1791,38 +1798,52 @@ class _ReportFab extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(28),
-          onTap: onTap,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-            decoration: BoxDecoration(
-              color: WoofCareColors.buttonColor,
-              borderRadius: BorderRadius.circular(28),
-              boxShadow: [
-                BoxShadow(
-                  color: WoofCareColors.buttonColor.withValues(alpha: 0.4),
-                  blurRadius: 20,
-                  offset: const Offset(0, 8),
-                ),
-              ],
-            ),
-            child: const Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                FaIcon(
-                  FontAwesomeIcons.bullhorn,
-                  color: WoofCareColors.offWhite,
-                  size: 19,
-                ),
-                SizedBox(width: 10),
-                Text(
-                  'Report',
-                  style: TextStyle(
-                    color: WoofCareColors.offWhite,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
+          onTap: widget.onTap,
+          // Drives the press feedback below without a separate GestureDetector,
+          // so it can't fight the map's own pan/zoom gesture recognizers.
+          onHighlightChanged: (highlighted) {
+            setState(() => _pressed = highlighted);
+          },
+          child: AnimatedScale(
+            scale: _pressed ? 0.93 : 1.0,
+            duration: const Duration(milliseconds: 120),
+            curve: Curves.easeOut,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 120),
+              curve: Curves.easeOut,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              decoration: BoxDecoration(
+                color: WoofCareColors.buttonColor,
+                borderRadius: BorderRadius.circular(28),
+                boxShadow: [
+                  BoxShadow(
+                    color: WoofCareColors.buttonColor.withValues(
+                      alpha: _pressed ? 0.22 : 0.4,
+                    ),
+                    blurRadius: _pressed ? 10 : 20,
+                    offset: Offset(0, _pressed ? 3 : 8),
                   ),
-                ),
-              ],
+                ],
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  FaIcon(
+                    FontAwesomeIcons.bullhorn,
+                    color: WoofCareColors.offWhite,
+                    size: 19,
+                  ),
+                  SizedBox(width: 10),
+                  Text(
+                    'Report',
+                    style: TextStyle(
+                      color: WoofCareColors.offWhite,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
