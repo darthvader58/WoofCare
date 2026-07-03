@@ -154,16 +154,27 @@ def backfill_reports(
         if "shareReporterPhone" not in data:
             updates["shareReporterPhone"] = False
 
-        if "reporterName" not in data and data.get("name"):
-            updates["reporterName"] = data["name"]
+        if is_anonymous:
+            # Anonymous reports must not carry reporter identity in the
+            # public doc, no matter what legacy fields exist.
+            if data.get("reporterName") is not None:
+                updates["reporterName"] = None
+            if data.get("reporterEmail") is not None:
+                updates["reporterEmail"] = None
+            if data.get("reporterPhone") is not None:
+                updates["reporterPhone"] = None
+        else:
+            if "reporterName" not in data and data.get("name"):
+                updates["reporterName"] = data["name"]
 
-        if "reporterEmail" not in data:
-            updates["reporterEmail"] = data.get("email")
+            if "reporterEmail" not in data:
+                updates["reporterEmail"] = data.get("email")
 
-        if is_anonymous or updates.get("shareReporterPhone") is False:
-            updates["reporterPhone"] = None
-        elif "reporterPhone" not in data:
-            updates["reporterPhone"] = data.get("phone")
+            if data.get("shareReporterPhone") is True:
+                if "reporterPhone" not in data:
+                    updates["reporterPhone"] = data.get("phone")
+            elif data.get("reporterPhone") is not None or "reporterPhone" not in data:
+                updates["reporterPhone"] = None
 
         exact_ref = db.collection(EXACT_LOCATION_COLLECTION).document(doc.id)
         exact_doc = exact_ref.get()
@@ -246,30 +257,134 @@ def backfill_reports(
     return changed
 
 
+def build_user_name_index(db: firestore.Client) -> dict[str, str]:
+    """Map display names to uids for legacy conversations that only stored names."""
+    index: dict[str, str] = {}
+    for doc in db.collection("users").stream():
+        name = (doc.to_dict() or {}).get("name")
+        if isinstance(name, str) and name and name not in index:
+            index[name] = doc.id
+    return index
+
+
+def backfill_conversation_messages(
+    doc_ref: firestore.DocumentReference,
+    data: dict[str, Any],
+    name_index: dict[str, str],
+    apply_changes: bool,
+) -> int:
+    """Stamp senderId on legacy messages and mask hidden-identity sender names."""
+    reporter_uid = data.get("reporterUserId")
+    requester_uid = data.get("requesterUserId")
+    reporter_name = data.get("reporterName")
+    requester_name = data.get("requesterName")
+    anonymous_reporter = data.get("anonymousReporter") is True
+    requester_shared = data.get("requesterProfileShared") is not False
+
+    changed = 0
+    for message in doc_ref.collection("messages").stream():
+        message_data = message.to_dict() or {}
+        updates: dict[str, Any] = {}
+
+        sender = message_data.get("sender")
+        sender_id = message_data.get("senderId")
+        if not sender_id and isinstance(sender, str):
+            if reporter_name and sender == reporter_name:
+                sender_id = reporter_uid
+            elif requester_name and sender == requester_name:
+                sender_id = requester_uid
+            else:
+                sender_id = name_index.get(sender)
+            if sender_id:
+                updates["senderId"] = sender_id
+
+        if (
+            anonymous_reporter
+            and reporter_uid
+            and sender_id == reporter_uid
+            and sender != "Anonymous Reporter"
+        ):
+            updates["sender"] = "Anonymous Reporter"
+        elif (
+            not requester_shared
+            and requester_uid
+            and sender_id == requester_uid
+            and sender != "Anonymous User"
+        ):
+            updates["sender"] = "Anonymous User"
+
+        changed += queue_update(message.reference, updates, apply_changes)
+
+    return changed
+
+
 def backfill_conversations(
     db: firestore.Client,
     apply_changes: bool,
 ) -> int:
     changed = 0
     default_expiry = datetime.now(timezone.utc) + timedelta(hours=48)
+    name_index = build_user_name_index(db)
 
     for doc in db.collection("conversations").stream():
         data = doc.to_dict() or {}
         updates: dict[str, Any] = {}
 
-        if data.get("isReportChat") is not True:
-            continue
+        # Participant uids are required by the rules for any read or write.
+        participant_ids = data.get("participantIds")
+        if not isinstance(participant_ids, list) or len(participant_ids) < 2:
+            resolved: list[str] = []
+            reporter_uid = data.get("reporterUserId")
+            requester_uid = data.get("requesterUserId")
+            if reporter_uid and requester_uid:
+                resolved = [str(requester_uid), str(reporter_uid)]
+            else:
+                for name in data.get("participants") or []:
+                    uid = name_index.get(name) if isinstance(name, str) else None
+                    if uid and uid not in resolved:
+                        resolved.append(uid)
+            if len(resolved) >= 2:
+                updates["participantIds"] = resolved
+            else:
+                print(
+                    f"WARNING {doc.reference.path}: could not resolve participant "
+                    "uids; conversation will be unreadable until fixed manually"
+                )
 
-        anonymous_reporter = data.get("anonymousReporter") is True
-        if "anonymousReporter" not in data:
-            anonymous_reporter = data.get("reporterDisplayName") == "Anonymous Reporter"
-            updates["anonymousReporter"] = anonymous_reporter
+        if data.get("isReportChat") is True:
+            anonymous_reporter = data.get("anonymousReporter") is True
+            if "anonymousReporter" not in data:
+                anonymous_reporter = (
+                    data.get("reporterDisplayName") == "Anonymous Reporter"
+                )
+                updates["anonymousReporter"] = anonymous_reporter
 
-        if "requesterProfileShared" not in data:
-            updates["requesterProfileShared"] = True
+            if "requesterProfileShared" not in data:
+                updates["requesterProfileShared"] = True
 
-        if anonymous_reporter and "expiresAt" not in data:
-            updates["expiresAt"] = default_expiry
+            if anonymous_reporter and "expiresAt" not in data:
+                updates["expiresAt"] = default_expiry
+
+            changed += backfill_conversation_messages(
+                doc.reference,
+                {**data, "anonymousReporter": anonymous_reporter},
+                name_index,
+                apply_changes,
+            )
+
+            # Strip real names for parties that chose privacy; display names
+            # already carry the masked value.
+            if anonymous_reporter and data.get("reporterName") is not None:
+                updates["reporterName"] = None
+            if (
+                data.get("requesterProfileShared") is False
+                and data.get("requesterName") is not None
+            ):
+                updates["requesterName"] = None
+        else:
+            changed += backfill_conversation_messages(
+                doc.reference, data, name_index, apply_changes
+            )
 
         changed += queue_update(doc.reference, updates, apply_changes)
 

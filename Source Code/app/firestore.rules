@@ -112,6 +112,59 @@ service cloud.firestore {
       return !data.keys().hasAny(["verified"]) || data.verified == false;
     }
 
+    // Anonymous reports must not carry reporter identity in the public doc.
+    function reportHidesReporterIdentityWhenAnonymous(data) {
+      return data.get("isAnonymous", false) != true
+        || (
+          (!data.keys().hasAny(["reporterName"]) || data.reporterName == null)
+          && (!data.keys().hasAny(["reporterEmail"]) || data.reporterEmail == null)
+          && (!data.keys().hasAny(["reporterPhone"]) || data.reporterPhone == null)
+        );
+    }
+
+    function isConversationParticipant(data) {
+      return signedIn()
+        && data.keys().hasAny(["participantIds"])
+        && data.participantIds is list
+        && request.auth.uid in data.participantIds;
+    }
+
+    // Fields that define who a conversation is between and its privacy state
+    // can never be rewritten after creation.
+    function conversationCoreUnchanged() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+        "participantIds",
+        "isReportChat",
+        "reportId",
+        "anonymousReporter",
+        "reporterUserId",
+        "requesterUserId",
+      ]);
+    }
+
+    function isPostAuthor(data) {
+      return signedIn()
+        && data.email == request.auth.token.email;
+    }
+
+    // Non-authors may only add or remove their own email in the likes array.
+    function likesToggleOnly() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(["likes"])
+        && (
+          request.resource.data.diff(resource.data).affectedKeys().size() == 0
+          || (
+            request.resource.data.likes.toSet().difference(resource.data.likes.toSet())
+              == [request.auth.token.email].toSet()
+            && resource.data.likes.toSet().difference(request.resource.data.likes.toSet()).size() == 0
+          )
+          || (
+            resource.data.likes.toSet().difference(request.resource.data.likes.toSet())
+              == [request.auth.token.email].toSet()
+            && request.resource.data.likes.toSet().difference(resource.data.likes.toSet()).size() == 0
+          )
+        );
+    }
+
     function userVerifiedUnchangedOnUpdate() {
       return !request.resource.data.diff(resource.data).affectedKeys().hasAny(["verified"]);
     }
@@ -246,14 +299,24 @@ service cloud.firestore {
 
     match /reports/{reportId} {
       allow get: if hasValidPublicReportLocation(resource.data);
-      allow list: if true;
+      // List queries cannot filter per-document conditions, so listing is
+      // only allowed when the client query proves every result carries the
+      // privacy-version marker. Writes below guarantee marker == clean doc,
+      // and the server migration stamps it after stripping exact fields, so
+      // unmigrated legacy docs (which may leak exact coordinates) are never
+      // returned by a permitted list query.
+      allow list: if resource.data.locationPrivacyVersion == 1;
       allow create: if signedIn()
         && request.resource.data.userID == request.auth.uid
-        && hasValidPublicReportLocation(request.resource.data);
+        && request.resource.data.locationPrivacyVersion == 1
+        && hasValidPublicReportLocation(request.resource.data)
+        && reportHidesReporterIdentityWhenAnonymous(request.resource.data);
       allow update: if signedIn()
         && resource.data.userID == request.auth.uid
         && request.resource.data.userID == resource.data.userID
-        && hasValidPublicReportLocation(request.resource.data);
+        && request.resource.data.locationPrivacyVersion == 1
+        && hasValidPublicReportLocation(request.resource.data)
+        && reportHidesReporterIdentityWhenAnonymous(request.resource.data);
       allow delete: if signedIn() && resource.data.userID == request.auth.uid;
     }
 
@@ -291,7 +354,8 @@ service cloud.firestore {
 
     match /articles/{articleId} {
       allow read: if true;
-      allow write: if signedIn();
+      // Articles are seeded by administrators, never by app clients.
+      allow write: if false;
     }
 
     match /locations/{locationId} {
@@ -301,14 +365,37 @@ service cloud.firestore {
 
     match /posts/{postId} {
       allow read: if true;
-      allow write: if signedIn();
+      allow create: if isPostAuthor(request.resource.data)
+        && request.resource.data.likes is list
+        && request.resource.data.likes.size() == 0;
+      allow update: if signedIn()
+        && (isPostAuthor(resource.data) || likesToggleOnly());
+      allow delete: if isPostAuthor(resource.data);
     }
 
     match /conversations/{conversationId} {
-      allow read, write: if signedIn();
+      allow get: if isConversationParticipant(resource.data);
+      // List rules must stay provable from the query alone: an
+      // array-contains filter on the caller's own uid satisfies this.
+      allow list: if signedIn()
+        && request.auth.uid in resource.data.participantIds;
+      allow create: if isConversationParticipant(request.resource.data)
+        && request.resource.data.participantIds.size() >= 2;
+      allow update: if isConversationParticipant(resource.data)
+        && conversationCoreUnchanged();
+      allow delete: if false;
 
       match /messages/{messageId} {
-        allow read, write: if signedIn();
+        function parentConversation() {
+          return get(/databases/$(database)/documents/conversations/$(conversationId)).data;
+        }
+
+        allow read: if signedIn()
+          && request.auth.uid in parentConversation().participantIds;
+        allow create: if signedIn()
+          && request.auth.uid in parentConversation().participantIds
+          && request.resource.data.senderId == request.auth.uid;
+        allow update, delete: if false;
       }
     }
 

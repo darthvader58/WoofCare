@@ -144,10 +144,13 @@ class ReportLocationService {
     String reportId,
   ) async {
     try {
+      // The rules only allow listing grants when the query proves the caller
+      // is a party to every result, so scope by reporterId as well.
       final snapshot =
           await FIRESTORE
               .collection('report_location_grants')
               .where('reportId', isEqualTo: reportId)
+              .where('reporterId', isEqualTo: profile.id)
               .get();
 
       final accepted = <AcceptedOrganization>[];
