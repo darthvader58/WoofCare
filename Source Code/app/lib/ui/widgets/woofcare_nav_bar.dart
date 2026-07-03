@@ -40,26 +40,30 @@ class WoofCareNavBar extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
             _NavIcon(
-              icon: FontAwesomeIcons.locationDot,
+              outlineIcon: Icons.location_on_outlined,
+              filledIcon: Icons.location_on_rounded,
               selected: currentIndex == 0,
               tooltip: 'Map',
               onTap: () => onTabSelected(0),
             ),
             _NavIcon(
-              icon: FontAwesomeIcons.solidComments,
+              outlineIcon: Icons.chat_bubble_outline_rounded,
+              filledIcon: Icons.chat_bubble_rounded,
               selected: currentIndex == 1,
               tooltip: 'Messages',
               onTap: () => onTabSelected(1),
             ),
             _ReportAction(onTap: onReportTap),
             _NavIcon(
-              icon: FontAwesomeIcons.userGroup,
+              outlineIcon: Icons.groups_outlined,
+              filledIcon: Icons.groups_rounded,
               selected: currentIndex == 2,
               tooltip: 'Community',
               onTap: () => onTabSelected(2),
             ),
             _NavIcon(
-              icon: FontAwesomeIcons.bookOpen,
+              outlineIcon: Icons.menu_book_outlined,
+              filledIcon: Icons.menu_book_rounded,
               selected: currentIndex == 3,
               tooltip: 'Articles',
               onTap: () => onTabSelected(3),
@@ -111,13 +115,15 @@ class _ReportAction extends StatelessWidget {
 }
 
 class _NavIcon extends StatelessWidget {
-  final IconData icon;
+  final IconData outlineIcon;
+  final IconData filledIcon;
   final bool selected;
   final String tooltip;
   final VoidCallback onTap;
 
   const _NavIcon({
-    required this.icon,
+    required this.outlineIcon,
+    required this.filledIcon,
     required this.selected,
     required this.tooltip,
     required this.onTap,
@@ -125,19 +131,40 @@ class _NavIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Unselected tabs render as a light dark-brown stroke; the active tab
+    // fills in solid, mirroring that screen's own header icon on arrival.
     final color =
         selected
             ? WoofCareColors.buttonColor
-            : WoofCareColors.primaryTextAndIcons;
+            : WoofCareColors.primaryTextAndIcons.withValues(alpha: 0.58);
 
     return Tooltip(
       message: tooltip,
       child: IconButton(
-        iconSize: 30,
-        color: color,
+        iconSize: 31,
         splashRadius: 30,
         onPressed: onTap,
-        icon: FaIcon(icon),
+        style: IconButton.styleFrom(
+          backgroundColor:
+              selected
+                  ? WoofCareColors.buttonColor.withValues(alpha: 0.12)
+                  : Colors.transparent,
+          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+        ),
+        icon: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 180),
+          transitionBuilder:
+              (child, animation) =>
+                  ScaleTransition(scale: animation, child: child),
+          child: Icon(
+            selected ? filledIcon : outlineIcon,
+            key: ValueKey<bool>(selected),
+            color: color,
+          ),
+        ),
       ),
     );
   }

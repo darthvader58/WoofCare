@@ -534,9 +534,13 @@ class _MapPageState extends State<MapPage> {
               left: 14,
               right: 14,
               child: _MapToolbar(
-                onReportTap: _reportDogButtonPressed,
                 onProfileTap: () => Navigator.pushNamed(context, "/profile"),
               ),
+            ),
+            Positioned(
+              bottom: 124,
+              left: 16,
+              child: _ReportFab(onTap: _reportDogButtonPressed),
             ),
             Positioned(
               top: 110,
@@ -1716,10 +1720,9 @@ String? _nonEmptyString(Object? value) {
 }
 
 class _MapToolbar extends StatelessWidget {
-  final VoidCallback onReportTap;
   final VoidCallback onProfileTap;
 
-  const _MapToolbar({required this.onReportTap, required this.onProfileTap});
+  const _MapToolbar({required this.onProfileTap});
 
   @override
   Widget build(BuildContext context) {
@@ -1768,18 +1771,61 @@ class _MapToolbar extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          IconButton(
-            tooltip: 'Report dog',
-            onPressed: onReportTap,
-            icon: const FaIcon(
-              FontAwesomeIcons.bullhorn,
-              color: WoofCareColors.buttonColor,
-              size: 22,
-            ),
-          ),
-          const SizedBox(width: 4),
           WoofCareProfileAvatar(onTap: onProfileTap),
         ],
+      ),
+    );
+  }
+}
+
+class _ReportFab extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _ReportFab({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: 'Report a stray dog',
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(28),
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            decoration: BoxDecoration(
+              color: WoofCareColors.buttonColor,
+              borderRadius: BorderRadius.circular(28),
+              boxShadow: [
+                BoxShadow(
+                  color: WoofCareColors.buttonColor.withValues(alpha: 0.4),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                FaIcon(
+                  FontAwesomeIcons.bullhorn,
+                  color: WoofCareColors.offWhite,
+                  size: 19,
+                ),
+                SizedBox(width: 10),
+                Text(
+                  'Report',
+                  style: TextStyle(
+                    color: WoofCareColors.offWhite,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
