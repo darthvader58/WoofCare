@@ -112,6 +112,31 @@ service cloud.firestore {
       return !data.keys().hasAny(["verified"]) || data.verified == false;
     }
 
+    // New accounts must be one of the two supported categories, and their
+    // location visibility must match: individuals are always private (never
+    // plotted on the map), organizations are always public.
+    function validNewUserCategory(data) {
+      return data.accountType in ["individual", "organization"]
+        && (
+          (data.accountType == "individual"
+            && (!data.keys().hasAny(["locationVisibility"]) || data.locationVisibility == "private"))
+          || (data.accountType == "organization"
+            && (!data.keys().hasAny(["locationVisibility"]) || data.locationVisibility == "public"))
+        );
+    }
+
+    function accountTypeUnchangedOnUpdate() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(["accountType"]);
+    }
+
+    // A non-organization (individual, or legacy "member") can never mark its
+    // location public, so individuals can't surface themselves on the map.
+    function nonOrgStaysLocationPrivate() {
+      return resource.data.accountType == "organization"
+        || !request.resource.data.keys().hasAny(["locationVisibility"])
+        || request.resource.data.locationVisibility != "public";
+    }
+
     // Anonymous reports must not carry reporter identity in the public doc.
     function reportHidesReporterIdentityWhenAnonymous(data) {
       return data.get("isAnonymous", false) != true
@@ -296,10 +321,13 @@ service cloud.firestore {
       allow read: if signedIn();
       allow create: if signedIn()
         && request.auth.uid == uid
-        && userVerifiedIsClientSafeOnCreate(request.resource.data);
+        && userVerifiedIsClientSafeOnCreate(request.resource.data)
+        && validNewUserCategory(request.resource.data);
       allow update: if signedIn()
         && request.auth.uid == uid
-        && userVerifiedUnchangedOnUpdate();
+        && userVerifiedUnchangedOnUpdate()
+        && accountTypeUnchangedOnUpdate()
+        && nonOrgStaysLocationPrivate();
       allow delete: if false;
     }
 

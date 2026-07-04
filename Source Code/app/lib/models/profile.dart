@@ -22,11 +22,19 @@ class Profile {
     required this.role,
     required this.bio,
     required this.phone,
-    this.accountType = "member",
+    this.accountType = "individual",
     required this.reference,
     this.verified = false,
     this.shareProfile = true,
   });
+
+  /// Legacy accounts were stored as "member"; the taxonomy is now
+  /// "individual" vs "organization". Normalize so old accounts keep working
+  /// until the migration converts their stored value.
+  static String _normalizeAccountType(Object? value) {
+    final type = value as String? ?? "individual";
+    return type == "member" ? "individual" : type;
+  }
 
   static Future<Profile> fromID(String id) async {
     final DocumentSnapshot doc =
@@ -45,7 +53,7 @@ class Profile {
       role: data["role"] as String,
       bio: data["bio"] as String,
       phone: data["phone"] as String,
-      accountType: data["accountType"] as String? ?? "member",
+      accountType: _normalizeAccountType(data["accountType"]),
       reference: doc.reference,
       verified: data["verified"] as bool? ?? false,
       shareProfile: data["shareProfile"] as bool? ?? true,
@@ -70,7 +78,7 @@ class Profile {
         role: data["role"] as String,
         bio: data["bio"] as String,
         phone: data["phone"] as String,
-        accountType: data["accountType"] as String? ?? "member",
+        accountType: _normalizeAccountType(data["accountType"]),
         reference: doc.reference,
         verified: data["verified"] as bool? ?? false,
         shareProfile: data["shareProfile"] as bool? ?? true,

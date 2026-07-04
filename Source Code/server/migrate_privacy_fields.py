@@ -117,6 +117,26 @@ def fuzzed_location_matches(
     )
 
 
+# Legacy individual roles -> new individual role vocabulary.
+INDIVIDUAL_ROLE_REMAP = {
+    "Animal Lover": "General Animal Lover",
+    "NGO Representative": "NGO Worker",
+    "Looking to Adopt": "Animal Lover Willing to Adopt",
+    "Veterinarian": "Vet",
+    "Dog Feeder": "Dog Feeder",
+}
+
+# Legacy organization types -> new organization type vocabulary. Legacy
+# "Adoption Center"/"Feeding Group" orgs have no direct new-org equivalent
+# (adoption/feeding are now individual concerns) and are left untouched with
+# a warning so a human can decide how to reclassify them.
+ORGANIZATION_TYPE_REMAP = {
+    "Animal Shelter": "Rescue Shelter",
+    "Rescue NGO": "NGO",
+    "Veterinary Clinic": "Vet Clinic",
+}
+
+
 def backfill_users(
     db: firestore.Client,
     apply_changes: bool,
@@ -131,6 +151,42 @@ def backfill_users(
 
         if "verified" not in data:
             updates["verified"] = False
+
+        # Taxonomy: legacy "member" (or missing) -> "individual".
+        account_type = data.get("accountType")
+        if account_type in (None, "member"):
+            account_type = "individual"
+            updates["accountType"] = "individual"
+
+        is_organization = account_type == "organization"
+
+        # Location visibility: individuals private, organizations public.
+        expected_visibility = "public" if is_organization else "private"
+        if data.get("locationVisibility") != expected_visibility:
+            updates["locationVisibility"] = expected_visibility
+
+        # Role vocabulary remap (best-effort, only clear 1:1 cases).
+        role = data.get("role")
+        if isinstance(role, str) and role:
+            if is_organization:
+                new_role = ORGANIZATION_TYPE_REMAP.get(role)
+                if new_role and new_role != role:
+                    updates["role"] = new_role
+                    updates["organizationType"] = new_role
+                elif new_role is None:
+                    print(
+                        f"WARNING {doc.reference.path}: org type {role!r} has no "
+                        "new-vocabulary mapping; leaving as-is for manual review"
+                    )
+            else:
+                new_role = INDIVIDUAL_ROLE_REMAP.get(role)
+                if new_role and new_role != role:
+                    updates["role"] = new_role
+                elif new_role is None:
+                    print(
+                        f"WARNING {doc.reference.path}: individual role {role!r} has "
+                        "no new-vocabulary mapping; leaving as-is for manual review"
+                    )
 
         changed += queue_update(doc.reference, updates, apply_changes)
 

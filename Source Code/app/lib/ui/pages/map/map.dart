@@ -534,9 +534,13 @@ class _MapPageState extends State<MapPage> {
               left: 14,
               right: 14,
               child: _MapToolbar(
-                onReportTap: _reportDogButtonPressed,
                 onProfileTap: () => Navigator.pushNamed(context, "/profile"),
               ),
+            ),
+            Positioned(
+              bottom: 124,
+              left: 16,
+              child: _ReportFab(onTap: _reportDogButtonPressed),
             ),
             Positioned(
               top: 110,
@@ -775,6 +779,115 @@ class _MapPageState extends State<MapPage> {
     );
   }
 
+  /// Resolves the (default, selected) pin icons for a marker.
+  ///
+  /// Accepts both the legacy `locations` collection codes ('vet', 'ngo',
+  /// 'shelter', 'dog', 'local') and the organization type labels produced at
+  /// signup ('Vet Clinic', 'NGO', 'Rescue Shelter'), so organization pins get
+  /// a relatable icon:
+  ///   Vet Clinic -> clinic (house + medical cross)
+  ///   NGO        -> office (building)
+  ///   Rescue Shelter -> caring hands
+  (BitmapDescriptor, BitmapDescriptor) _markerIconsForType(Object? type) {
+    switch (type?.toString().trim().toLowerCase()) {
+      case 'vet':
+      case 'vet clinic':
+        return (vetMarker, vetSelectMarker);
+      case 'ngo':
+        return (ngoMarker, ngoSelectMarker);
+      case 'shelter':
+      case 'rescue shelter':
+        return (shelterMarker, shelterSelectMarker);
+      case 'local':
+      case 'adopt':
+        return (adoptMarker, adoptSelectMarker);
+      case 'dog':
+      default:
+        return (dogMarker, dogSelectMarker);
+    }
+  }
+
+  /// Maps an organization type label to the legacy filter code used by the
+  /// top filter bar, so org pins sit under the right chip (Vets/NGOs/Shelters).
+  String _orgFilterType(String? organizationType) {
+    switch (organizationType?.trim().toLowerCase()) {
+      case 'vet clinic':
+        return 'vet';
+      case 'rescue shelter':
+        return 'shelter';
+      case 'ngo':
+      default:
+        return 'ngo';
+    }
+  }
+
+  /// Loads verified organizations that have opted into a public map presence
+  /// and have geocoded coordinates. Individuals are never queried here, so
+  /// their location always stays private.
+  Future<List<Map<String, dynamic>>> _fetchOrganizationMarkers() async {
+    List<QueryDocumentSnapshot> orgDocs;
+    try {
+      orgDocs =
+          (await FIRESTORE
+                  .collection("users")
+                  .where("accountType", isEqualTo: "organization")
+                  .get())
+              .docs;
+    } on FirebaseException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Unable to load organizations: ${error.code}')),
+        );
+      }
+      return [];
+    }
+
+    final List<Map<String, dynamic>> orgMarkers = [];
+    for (final doc in orgDocs) {
+      final data = doc.data() as Map<String, dynamic>?;
+      if (data == null) continue;
+
+      // TODO(pre-launch): RESTORE THE VERIFIED-ONLY GATE.
+      // During closed beta every organization is a known, trusted beta tester,
+      // so we plot all public organizations. Before opening signups to the
+      // public this MUST be re-gated, or anyone could self-signup as a fake
+      // "Rescue Shelter"/"Vet Clinic" and place a pin. Re-add:
+      //     if (data['verified'] != true) continue;
+      // (orgs can't self-verify — `verified` is client-locked in firestore.rules).
+      if (data['locationVisibility'] != 'public') continue;
+
+      final latitude = data['latitude'];
+      final longitude = data['longitude'];
+      if (latitude is! num || longitude is! num) continue;
+
+      final organizationType =
+          (data['organizationType'] ?? data['role'])?.toString();
+      final icons = _markerIconsForType(organizationType);
+      final address = [
+        data['addressStreet1'],
+        data['addressStreet2'],
+        data['addressCity'],
+      ].map((part) => part?.toString().trim() ?? '').where((p) => p.isNotEmpty).join(', ');
+
+      orgMarkers.add({
+        'id': doc.id,
+        'latitude': latitude.toDouble(),
+        'longitude': longitude.toDouble(),
+        'name': data['name'] ?? 'Organization',
+        'description': organizationType ?? 'Organization',
+        'address': address,
+        'phone': data['phone'],
+        'website': data['website'],
+        'type': _orgFilterType(organizationType),
+        'icon': icons.$1,
+        'selectIcon': icons.$2,
+        'selected': false,
+      });
+    }
+
+    return orgMarkers;
+  }
+
   Future<void> _fetchMarkers() async {
     final List<Map<String, dynamic>> loadedMarkers = [];
 
@@ -797,34 +910,15 @@ class _MapPageState extends State<MapPage> {
           'selected': false,
         };
 
-        switch (data['type']) {
-          case 'vet':
-            marker['icon'] = vetMarker;
-            marker['selectIcon'] = vetSelectMarker;
-            break;
-          case 'ngo':
-            marker['icon'] = ngoMarker;
-            marker['selectIcon'] = ngoSelectMarker;
-            break;
-          case 'shelter':
-            marker['icon'] = shelterMarker;
-            marker['selectIcon'] = shelterSelectMarker;
-            break;
-          case 'dog':
-            marker['icon'] = dogMarker;
-            marker['selectIcon'] = dogSelectMarker;
-            break;
-          case 'local':
-            marker['icon'] = adoptMarker;
-            marker['selectIcon'] = adoptSelectMarker;
-            break;
-          default:
-            marker['icon'] = dogMarker;
-        }
+        final icons = _markerIconsForType(data['type']);
+        marker['icon'] = icons.$1;
+        marker['selectIcon'] = icons.$2;
 
         loadedMarkers.add(marker);
       }
     }
+
+    loadedMarkers.addAll(await _fetchOrganizationMarkers());
 
     List<QueryDocumentSnapshot> reportDocs;
     try {
@@ -1716,10 +1810,9 @@ String? _nonEmptyString(Object? value) {
 }
 
 class _MapToolbar extends StatelessWidget {
-  final VoidCallback onReportTap;
   final VoidCallback onProfileTap;
 
-  const _MapToolbar({required this.onReportTap, required this.onProfileTap});
+  const _MapToolbar({required this.onProfileTap});
 
   @override
   Widget build(BuildContext context) {
@@ -1768,18 +1861,82 @@ class _MapToolbar extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          IconButton(
-            tooltip: 'Report dog',
-            onPressed: onReportTap,
-            icon: const FaIcon(
-              FontAwesomeIcons.bullhorn,
-              color: WoofCareColors.buttonColor,
-              size: 22,
-            ),
-          ),
-          const SizedBox(width: 4),
           WoofCareProfileAvatar(onTap: onProfileTap),
         ],
+      ),
+    );
+  }
+}
+
+class _ReportFab extends StatefulWidget {
+  final VoidCallback onTap;
+
+  const _ReportFab({required this.onTap});
+
+  @override
+  State<_ReportFab> createState() => _ReportFabState();
+}
+
+class _ReportFabState extends State<_ReportFab> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: 'Report a stray dog',
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(28),
+          onTap: widget.onTap,
+          // Drives the press feedback below without a separate GestureDetector,
+          // so it can't fight the map's own pan/zoom gesture recognizers.
+          onHighlightChanged: (highlighted) {
+            setState(() => _pressed = highlighted);
+          },
+          child: AnimatedScale(
+            scale: _pressed ? 0.93 : 1.0,
+            duration: const Duration(milliseconds: 120),
+            curve: Curves.easeOut,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 120),
+              curve: Curves.easeOut,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              decoration: BoxDecoration(
+                color: WoofCareColors.buttonColor,
+                borderRadius: BorderRadius.circular(28),
+                boxShadow: [
+                  BoxShadow(
+                    color: WoofCareColors.buttonColor.withValues(
+                      alpha: _pressed ? 0.22 : 0.4,
+                    ),
+                    blurRadius: _pressed ? 10 : 20,
+                    offset: Offset(0, _pressed ? 3 : 8),
+                  ),
+                ],
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  FaIcon(
+                    FontAwesomeIcons.bullhorn,
+                    color: WoofCareColors.offWhite,
+                    size: 19,
+                  ),
+                  SizedBox(width: 10),
+                  Text(
+                    'Report',
+                    style: TextStyle(
+                      color: WoofCareColors.offWhite,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:woofcare/config/colors.dart';
 import 'package:woofcare/config/constants.dart';
+import 'package:woofcare/services/geocoding_service.dart';
 
 import '/services/auth.dart';
 import '/ui/widgets/auth_account_type_tabs.dart';
@@ -37,31 +38,31 @@ class _SignUpPageState extends State<SignUpPage> {
       TextEditingController();
   final TextEditingController _organizationStreet2TextController =
       TextEditingController();
+  final TextEditingController _organizationCityTextController =
+      TextEditingController();
   final TextEditingController _organizationWebsiteTextController =
       TextEditingController();
   final TextEditingController _organizationNotesTextController =
       TextEditingController();
 
-  AuthAccountType _accountType = AuthAccountType.member;
+  AuthAccountType _accountType = AuthAccountType.individual;
   bool _visible = false;
   bool _acceptedTerms = false;
+  bool _isSubmitting = false;
 
+  // Individuals keep their location private always; these are self-described
+  // helper roles, not location-bearing entities.
   final List<String> roles = [
-    "Animal Lover",
-    "NGO Representative",
-    "Looking to Adopt",
+    "General Animal Lover",
+    "Animal Lover Willing to Adopt",
+    "NGO Worker",
+    "Vet",
+    "Shelter Owner",
     "Dog Feeder",
-    "Veterinarian",
   ];
 
-  final List<String> organizationTypes = [
-    "Animal Shelter",
-    "Veterinary Clinic",
-    "Rescue NGO",
-    "Adoption Center",
-    "Feeding Group",
-    "Other",
-  ];
+  // Organizations expose their premises location publicly on the map.
+  final List<String> organizationTypes = ["NGO", "Vet Clinic", "Rescue Shelter"];
 
   String role = "";
   String organizationType = "";
@@ -86,6 +87,7 @@ class _SignUpPageState extends State<SignUpPage> {
     _organizationNameTextController.dispose();
     _organizationStreet1TextController.dispose();
     _organizationStreet2TextController.dispose();
+    _organizationCityTextController.dispose();
     _organizationWebsiteTextController.dispose();
     _organizationNotesTextController.dispose();
     super.dispose();
@@ -119,7 +121,9 @@ class _SignUpPageState extends State<SignUpPage> {
     }
   }
 
-  void signup() {
+  Future<void> signup() async {
+    if (_isSubmitting) return;
+
     if (!_acceptedTerms) {
       _showError("Please accept the terms to continue");
       return;
@@ -135,17 +139,35 @@ class _SignUpPageState extends State<SignUpPage> {
       return;
     }
 
+    setState(() => _isSubmitting = true);
+
+    Map<String, dynamic> data;
+    if (_accountType == AuthAccountType.organization) {
+      // Geocode the premises address into map coordinates. If it can't be
+      // resolved the account is still created; the pin appears once the
+      // address is fixed and re-geocoded.
+      final query = GeocodingService.buildAddressQuery(
+        street1: _organizationStreet1TextController.text,
+        street2: _organizationStreet2TextController.text,
+        city: _organizationCityTextController.text,
+      );
+      final coords = await GeocodingService.coordinatesForAddress(query);
+      data = _organizationSignupData(coords: coords);
+    } else {
+      data = _individualSignupData();
+    }
+
+    if (!mounted) return;
+
     Auth.signup(
       context: context,
       email: _emailTextController.text.trim(),
       password: _passwordTextController.text.trim(),
-      data:
-          _accountType == AuthAccountType.organization
-              ? _organizationSignupData()
-              : _memberSignupData(),
+      data: data,
       error: (e) {
         setState(() {
           _visible = true;
+          _isSubmitting = false;
 
           if (e.code == "channel-error") {
             errorMessage = "Please provide an email and/or password";
@@ -175,6 +197,7 @@ class _SignUpPageState extends State<SignUpPage> {
     if (_accountType == AuthAccountType.organization) {
       return _organizationNameTextController.text.trim().isNotEmpty &&
           _organizationStreet1TextController.text.trim().isNotEmpty &&
+          _organizationCityTextController.text.trim().isNotEmpty &&
           organizationType.isNotEmpty;
     }
 
@@ -187,9 +210,9 @@ class _SignUpPageState extends State<SignUpPage> {
     return _passwordTextController.text == _passwordConfirmTextController.text;
   }
 
-  Map<String, dynamic> _memberSignupData() {
+  Map<String, dynamic> _individualSignupData() {
     return {
-      "accountType": AuthAccountType.member.name,
+      "accountType": AuthAccountType.individual.name,
       "bio": "",
       "phone": _phoneTextController.text.trim(),
       "dob": _dateOfBirthTextController.text.trim(),
@@ -198,10 +221,13 @@ class _SignUpPageState extends State<SignUpPage> {
       "role": role,
       "shareProfile": true,
       "verified": false,
+      // Individuals are never plotted on the map; if they want to share where
+      // they are, they send a Google Maps link in chat.
+      "locationVisibility": "private",
     };
   }
 
-  Map<String, dynamic> _organizationSignupData() {
+  Map<String, dynamic> _organizationSignupData({GeocodedCoordinates? coords}) {
     return {
       "accountType": AuthAccountType.organization.name,
       "bio": _organizationNotesTextController.text.trim(),
@@ -213,8 +239,14 @@ class _SignUpPageState extends State<SignUpPage> {
       "website": _organizationWebsiteTextController.text.trim(),
       "addressStreet1": _organizationStreet1TextController.text.trim(),
       "addressStreet2": _organizationStreet2TextController.text.trim(),
+      "addressCity": _organizationCityTextController.text.trim(),
       "verified": false,
       "shareProfile": true,
+      // An organization's premises location is public on the landing map.
+      "locationVisibility": "public",
+      // Geocoded premises coordinates; null until a valid address resolves.
+      if (coords != null) "latitude": coords.latitude,
+      if (coords != null) "longitude": coords.longitude,
     };
   }
 
@@ -331,12 +363,12 @@ class _SignUpPageState extends State<SignUpPage> {
                     const SizedBox(height: 16),
 
                     CustomButton(
-                      text: "Sign Up",
+                      text: _isSubmitting ? "Signing Up..." : "Sign Up",
                       icon:
                           _accountType == AuthAccountType.organization
                               ? Icons.business
                               : Icons.person_add_alt_1,
-                      onTap: signup,
+                      onTap: _isSubmitting ? null : signup,
                     ),
 
                     const SizedBox(height: 16),
@@ -443,6 +475,12 @@ class _SignUpPageState extends State<SignUpPage> {
           controller: _organizationStreet2TextController,
           hintText: "Street Address 2",
           prefix: Icons.location_on_outlined,
+        ),
+        const SizedBox(height: 10),
+        CustomTextField(
+          controller: _organizationCityTextController,
+          hintText: "City",
+          prefix: Icons.location_city,
         ),
         const SizedBox(height: 10),
         _buildSectionLabel("Contact:"),

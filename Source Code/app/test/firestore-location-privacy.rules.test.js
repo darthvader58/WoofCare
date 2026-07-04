@@ -96,9 +96,10 @@ describe('users verified field protection', () => {
 
     await assertFails(
       db.doc('users/new-user').set({
-        accountType: 'member',
+        accountType: 'individual',
         name: 'Sneaky Verified',
         verified: true,
+        locationVisibility: 'private',
       }),
     );
   });
@@ -108,9 +109,10 @@ describe('users verified field protection', () => {
 
     await assertSucceeds(
       db.doc('users/new-user').set({
-        accountType: 'member',
+        accountType: 'individual',
         name: 'Honest Signup',
         verified: false,
+        locationVisibility: 'private',
       }),
     );
   });
@@ -142,6 +144,130 @@ describe('users verified field protection', () => {
     const db = testEnv.authenticatedContext('stranger').firestore();
 
     await assertSucceeds(db.doc('users/stranger').update({ name: 'Renamed' }));
+  });
+});
+
+describe('account category and location visibility rules', () => {
+  it('allows creating an individual with private location visibility', async () => {
+    const db = testEnv.authenticatedContext('indiv-1').firestore();
+
+    await assertSucceeds(
+      db.doc('users/indiv-1').set({
+        accountType: 'individual',
+        name: 'Helpful Person',
+        role: 'Dog Feeder',
+        locationVisibility: 'private',
+        verified: false,
+      }),
+    );
+  });
+
+  it('denies creating an individual that marks its location public', async () => {
+    const db = testEnv.authenticatedContext('indiv-2').firestore();
+
+    await assertFails(
+      db.doc('users/indiv-2').set({
+        accountType: 'individual',
+        name: 'Sneaky Public',
+        role: 'Dog Feeder',
+        locationVisibility: 'public',
+        verified: false,
+      }),
+    );
+  });
+
+  it('allows creating an organization with public location visibility', async () => {
+    const db = testEnv.authenticatedContext('org-1').firestore();
+
+    await assertSucceeds(
+      db.doc('users/org-1').set({
+        accountType: 'organization',
+        name: 'City Vet Clinic',
+        organizationType: 'Vet Clinic',
+        role: 'Vet Clinic',
+        locationVisibility: 'public',
+        verified: false,
+      }),
+    );
+  });
+
+  it('denies creating an organization that hides its location', async () => {
+    const db = testEnv.authenticatedContext('org-2').firestore();
+
+    await assertFails(
+      db.doc('users/org-2').set({
+        accountType: 'organization',
+        name: 'Shy Shelter',
+        organizationType: 'Rescue Shelter',
+        role: 'Rescue Shelter',
+        locationVisibility: 'private',
+        verified: false,
+      }),
+    );
+  });
+
+  it('denies creating a user with the retired "member" account type', async () => {
+    const db = testEnv.authenticatedContext('legacy-shape').firestore();
+
+    await assertFails(
+      db.doc('users/legacy-shape').set({
+        accountType: 'member',
+        name: 'Old Shape',
+        verified: false,
+      }),
+    );
+  });
+
+  it('denies creating a user with an unknown account type', async () => {
+    const db = testEnv.authenticatedContext('weird').firestore();
+
+    await assertFails(
+      db.doc('users/weird').set({
+        accountType: 'superuser',
+        name: 'Nope',
+        verified: false,
+      }),
+    );
+  });
+
+  it('denies an individual flipping its location visibility to public later', async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await context.firestore().doc('users/indiv-3').set({
+        accountType: 'individual',
+        name: 'Private Person',
+        role: 'General Animal Lover',
+        locationVisibility: 'private',
+        verified: false,
+      });
+    });
+
+    const db = testEnv.authenticatedContext('indiv-3').firestore();
+    await assertFails(
+      db.doc('users/indiv-3').update({ locationVisibility: 'public' }),
+    );
+  });
+
+  it('denies a legacy member account being flipped to a public location', async () => {
+    // Legacy docs still carry accountType "member"; they must stay private
+    // until the migration converts them.
+    const db = testEnv.authenticatedContext('stranger').firestore();
+    await assertFails(
+      db.doc('users/stranger').update({ locationVisibility: 'public' }),
+    );
+  });
+
+  it('denies changing an account type after creation', async () => {
+    const db = testEnv.authenticatedContext('accepted-org').firestore();
+    await assertFails(
+      db.doc('users/accepted-org').update({ accountType: 'individual' }),
+    );
+  });
+
+  it('lets an organization update non-identity profile fields', async () => {
+    const db = testEnv.authenticatedContext('accepted-org').firestore();
+    await assertSucceeds(
+      db.doc('users/accepted-org').update({ bio: 'We rescue dogs citywide.' }),
+    );
   });
 });
 
