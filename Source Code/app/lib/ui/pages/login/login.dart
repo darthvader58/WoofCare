@@ -23,7 +23,7 @@ class _LogInPageState extends State<LogInPage> {
   final _errorTextController = TextEditingController();
   var _visibleMessage = false;
   var _hidePassword = true;
-  AuthAccountType _accountType = AuthAccountType.member;
+  AuthAccountType _accountType = AuthAccountType.individual;
 
   String? errorMessage = "";
   bool rememberMe = false;

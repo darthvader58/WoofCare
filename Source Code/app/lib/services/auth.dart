@@ -100,7 +100,7 @@ class Auth {
             code: "wrong-account-type",
             message:
                 expectedAccountType == "organization"
-                    ? "This account is registered as an individual member."
+                    ? "This account is registered as an individual."
                     : "This account is registered as an organization.",
           ),
         );

@@ -42,26 +42,23 @@ class _SignUpPageState extends State<SignUpPage> {
   final TextEditingController _organizationNotesTextController =
       TextEditingController();
 
-  AuthAccountType _accountType = AuthAccountType.member;
+  AuthAccountType _accountType = AuthAccountType.individual;
   bool _visible = false;
   bool _acceptedTerms = false;
 
+  // Individuals keep their location private always; these are self-described
+  // helper roles, not location-bearing entities.
   final List<String> roles = [
-    "Animal Lover",
-    "NGO Representative",
-    "Looking to Adopt",
+    "General Animal Lover",
+    "Animal Lover Willing to Adopt",
+    "NGO Worker",
+    "Vet",
+    "Shelter Owner",
     "Dog Feeder",
-    "Veterinarian",
   ];
 
-  final List<String> organizationTypes = [
-    "Animal Shelter",
-    "Veterinary Clinic",
-    "Rescue NGO",
-    "Adoption Center",
-    "Feeding Group",
-    "Other",
-  ];
+  // Organizations expose their premises location publicly on the map.
+  final List<String> organizationTypes = ["NGO", "Vet Clinic", "Rescue Shelter"];
 
   String role = "";
   String organizationType = "";
@@ -142,7 +139,7 @@ class _SignUpPageState extends State<SignUpPage> {
       data:
           _accountType == AuthAccountType.organization
               ? _organizationSignupData()
-              : _memberSignupData(),
+              : _individualSignupData(),
       error: (e) {
         setState(() {
           _visible = true;
@@ -187,9 +184,9 @@ class _SignUpPageState extends State<SignUpPage> {
     return _passwordTextController.text == _passwordConfirmTextController.text;
   }
 
-  Map<String, dynamic> _memberSignupData() {
+  Map<String, dynamic> _individualSignupData() {
     return {
-      "accountType": AuthAccountType.member.name,
+      "accountType": AuthAccountType.individual.name,
       "bio": "",
       "phone": _phoneTextController.text.trim(),
       "dob": _dateOfBirthTextController.text.trim(),
@@ -198,6 +195,9 @@ class _SignUpPageState extends State<SignUpPage> {
       "role": role,
       "shareProfile": true,
       "verified": false,
+      // Individuals are never plotted on the map; if they want to share where
+      // they are, they send a Google Maps link in chat.
+      "locationVisibility": "private",
     };
   }
 
@@ -215,6 +215,8 @@ class _SignUpPageState extends State<SignUpPage> {
       "addressStreet2": _organizationStreet2TextController.text.trim(),
       "verified": false,
       "shareProfile": true,
+      // An organization's premises location is public on the landing map.
+      "locationVisibility": "public",
     };
   }
 

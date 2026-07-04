@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:woofcare/config/colors.dart';
 
-enum AuthAccountType { member, organization }
+enum AuthAccountType { individual, organization }
 
 extension AuthAccountTypeLabel on AuthAccountType {
   String get label {
     switch (this) {
-      case AuthAccountType.member:
-        return 'Member';
+      case AuthAccountType.individual:
+        return 'Individual';
       case AuthAccountType.organization:
         return 'Organization';
     }
