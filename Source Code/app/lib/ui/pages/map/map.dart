@@ -779,6 +779,115 @@ class _MapPageState extends State<MapPage> {
     );
   }
 
+  /// Resolves the (default, selected) pin icons for a marker.
+  ///
+  /// Accepts both the legacy `locations` collection codes ('vet', 'ngo',
+  /// 'shelter', 'dog', 'local') and the organization type labels produced at
+  /// signup ('Vet Clinic', 'NGO', 'Rescue Shelter'), so organization pins get
+  /// a relatable icon:
+  ///   Vet Clinic -> clinic (house + medical cross)
+  ///   NGO        -> office (building)
+  ///   Rescue Shelter -> caring hands
+  (BitmapDescriptor, BitmapDescriptor) _markerIconsForType(Object? type) {
+    switch (type?.toString().trim().toLowerCase()) {
+      case 'vet':
+      case 'vet clinic':
+        return (vetMarker, vetSelectMarker);
+      case 'ngo':
+        return (ngoMarker, ngoSelectMarker);
+      case 'shelter':
+      case 'rescue shelter':
+        return (shelterMarker, shelterSelectMarker);
+      case 'local':
+      case 'adopt':
+        return (adoptMarker, adoptSelectMarker);
+      case 'dog':
+      default:
+        return (dogMarker, dogSelectMarker);
+    }
+  }
+
+  /// Maps an organization type label to the legacy filter code used by the
+  /// top filter bar, so org pins sit under the right chip (Vets/NGOs/Shelters).
+  String _orgFilterType(String? organizationType) {
+    switch (organizationType?.trim().toLowerCase()) {
+      case 'vet clinic':
+        return 'vet';
+      case 'rescue shelter':
+        return 'shelter';
+      case 'ngo':
+      default:
+        return 'ngo';
+    }
+  }
+
+  /// Loads verified organizations that have opted into a public map presence
+  /// and have geocoded coordinates. Individuals are never queried here, so
+  /// their location always stays private.
+  Future<List<Map<String, dynamic>>> _fetchOrganizationMarkers() async {
+    List<QueryDocumentSnapshot> orgDocs;
+    try {
+      orgDocs =
+          (await FIRESTORE
+                  .collection("users")
+                  .where("accountType", isEqualTo: "organization")
+                  .get())
+              .docs;
+    } on FirebaseException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Unable to load organizations: ${error.code}')),
+        );
+      }
+      return [];
+    }
+
+    final List<Map<String, dynamic>> orgMarkers = [];
+    for (final doc in orgDocs) {
+      final data = doc.data() as Map<String, dynamic>?;
+      if (data == null) continue;
+
+      // TODO(pre-launch): RESTORE THE VERIFIED-ONLY GATE.
+      // During closed beta every organization is a known, trusted beta tester,
+      // so we plot all public organizations. Before opening signups to the
+      // public this MUST be re-gated, or anyone could self-signup as a fake
+      // "Rescue Shelter"/"Vet Clinic" and place a pin. Re-add:
+      //     if (data['verified'] != true) continue;
+      // (orgs can't self-verify — `verified` is client-locked in firestore.rules).
+      if (data['locationVisibility'] != 'public') continue;
+
+      final latitude = data['latitude'];
+      final longitude = data['longitude'];
+      if (latitude is! num || longitude is! num) continue;
+
+      final organizationType =
+          (data['organizationType'] ?? data['role'])?.toString();
+      final icons = _markerIconsForType(organizationType);
+      final address = [
+        data['addressStreet1'],
+        data['addressStreet2'],
+        data['addressCity'],
+      ].map((part) => part?.toString().trim() ?? '').where((p) => p.isNotEmpty).join(', ');
+
+      orgMarkers.add({
+        'id': doc.id,
+        'latitude': latitude.toDouble(),
+        'longitude': longitude.toDouble(),
+        'name': data['name'] ?? 'Organization',
+        'description': organizationType ?? 'Organization',
+        'address': address,
+        'phone': data['phone'],
+        'website': data['website'],
+        'type': _orgFilterType(organizationType),
+        'icon': icons.$1,
+        'selectIcon': icons.$2,
+        'selected': false,
+      });
+    }
+
+    return orgMarkers;
+  }
+
   Future<void> _fetchMarkers() async {
     final List<Map<String, dynamic>> loadedMarkers = [];
 
@@ -801,34 +910,15 @@ class _MapPageState extends State<MapPage> {
           'selected': false,
         };
 
-        switch (data['type']) {
-          case 'vet':
-            marker['icon'] = vetMarker;
-            marker['selectIcon'] = vetSelectMarker;
-            break;
-          case 'ngo':
-            marker['icon'] = ngoMarker;
-            marker['selectIcon'] = ngoSelectMarker;
-            break;
-          case 'shelter':
-            marker['icon'] = shelterMarker;
-            marker['selectIcon'] = shelterSelectMarker;
-            break;
-          case 'dog':
-            marker['icon'] = dogMarker;
-            marker['selectIcon'] = dogSelectMarker;
-            break;
-          case 'local':
-            marker['icon'] = adoptMarker;
-            marker['selectIcon'] = adoptSelectMarker;
-            break;
-          default:
-            marker['icon'] = dogMarker;
-        }
+        final icons = _markerIconsForType(data['type']);
+        marker['icon'] = icons.$1;
+        marker['selectIcon'] = icons.$2;
 
         loadedMarkers.add(marker);
       }
     }
+
+    loadedMarkers.addAll(await _fetchOrganizationMarkers());
 
     List<QueryDocumentSnapshot> reportDocs;
     try {
