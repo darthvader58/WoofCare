@@ -31,6 +31,7 @@ dependencies:
   video_player: ^2.11.1
   firebase_storage: ^13.4.3
   geocoding: ^5.0.0
+  firebase_messaging: ^16.4.1
 
 dev_dependencies:
   flutter_test:

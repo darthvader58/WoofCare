@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '/config/constants.dart';
 import '/models/profile.dart';
+import '/services/notification_service.dart';
 
 class Auth {
   static void _showUnexpectedError(BuildContext context, Object error) {
@@ -35,6 +36,8 @@ class Auth {
       return;
     }
 
+    await NotificationService.registerIfOrganization();
+
     onLoggedIn();
   }
 
@@ -58,6 +61,8 @@ class Auth {
       await FIRESTORE.collection("users").doc(uid).set(data);
 
       profile = await Profile.fromID(uid);
+
+      await NotificationService.registerIfOrganization();
 
       if (context.mounted) {
         Navigator.pushNamed(context, "/");
@@ -106,6 +111,8 @@ class Auth {
         );
         return;
       }
+
+      await NotificationService.registerIfOrganization();
 
       if (context.mounted) {
         Navigator.pushNamed(context, "/");
