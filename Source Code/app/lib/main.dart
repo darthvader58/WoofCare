@@ -7,12 +7,14 @@ import 'package:woofcare/ui/pages/posts/posts.dart';
 
 import '/config/constants.dart';
 import '/config/theme.dart';
+import '/services/notification_service.dart';
 import '/ui/pages/export.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  await NotificationService.initialize();
   SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
 
   runApp(const WoofCare());
@@ -25,6 +27,7 @@ class WoofCare extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
+      navigatorKey: NAVIGATOR_KEY,
       title: "WoofCare",
       theme: WoofCareTheme.of(context),
       initialRoute: "/",
