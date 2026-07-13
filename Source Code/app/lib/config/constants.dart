@@ -14,3 +14,5 @@ const bool TESTING = kDebugMode;
 
 final FirebaseFirestore FIRESTORE = FirebaseFirestore.instance;
 final FirebaseAuth AUTH = FirebaseAuth.instance;
+
+final GlobalKey<NavigatorState> NAVIGATOR_KEY = GlobalKey<NavigatorState>();

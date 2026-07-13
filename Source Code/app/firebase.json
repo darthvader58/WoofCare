@@ -6,12 +6,22 @@
   "storage": {
     "rules": "storage.rules"
   },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "ignore": ["node_modules", ".git", "firebase-debug.log", "firebase-debug.*.log"]
+    }
+  ],
   "emulators": {
     "firestore": {
       "port": 8280
     },
     "storage": {
       "port": 9299
+    },
+    "functions": {
+      "port": 5001
     },
     "ui": {
       "enabled": true,

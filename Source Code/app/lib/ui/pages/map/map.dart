@@ -12,6 +12,7 @@ import 'package:woofcare/config/colors.dart';
 import 'package:woofcare/config/constants.dart';
 import 'package:woofcare/config/map_style.dart';
 import 'package:woofcare/services/location_privacy.dart';
+import 'package:woofcare/services/notification_service.dart';
 import 'package:woofcare/services/report_location_service.dart';
 import 'package:woofcare/ui/widgets/app_chrome.dart';
 
@@ -1040,6 +1041,39 @@ class _MapPageState extends State<MapPage> {
     setState(() {
       markers = loadedMarkers;
     });
+
+    await _focusPendingReport();
+  }
+
+  /// Consumes a report deep link stashed by a notification tap: centers the
+  /// camera on the matching report marker and opens its details sheet. Does
+  /// nothing when there is no pending id or the report is gone.
+  Future<void> _focusPendingReport() async {
+    final reportId = NotificationService.takePendingReportId();
+    if (reportId == null || reportId.isEmpty) return;
+
+    final index = markers.indexWhere(
+      (marker) => marker['type'] == 'report' && marker['id'] == reportId,
+    );
+    if (index == -1) return;
+
+    // The map controller only exists once the device location resolves and
+    // the GoogleMap widget builds; wait briefly rather than dropping the tap.
+    for (var i = 0; i < 20 && _mapController == null && mounted; i++) {
+      await Future.delayed(const Duration(milliseconds: 250));
+    }
+    if (!mounted || _mapController == null) return;
+
+    final marker = markers[index];
+    await _mapController?.animateCamera(
+      CameraUpdate.newLatLngZoom(
+        LatLng(marker['latitude'], marker['longitude']),
+        16,
+      ),
+    );
+
+    if (!mounted) return;
+    await _handleMarkerTap(index);
   }
 
   Future<void> _handleMarkerTap(int index) async {
