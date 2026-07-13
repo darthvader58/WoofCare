@@ -17,10 +17,10 @@ exports.notifyNearbyOrgsOnReportCreate = onDocumentCreated(
     timeoutSeconds: 30,
     memory: '256MiB',
     retry: false, // avoid duplicate notification storms on function error/redelivery
-    // TODO: set `region` once the Firestore database's actual region is
-    // confirmed (Firebase console > Firestore > database location). Gen 2
-    // Firestore triggers must match the database region — a mismatched region
-    // means the trigger silently never fires.
+    // The Firestore database lives in the nam5 US multi-region, which is not
+    // a compute region — functions for nam5 databases must run in us-central1
+    // (the deploy pipeline attaches the Eventarc trigger at nam5 itself).
+    region: 'us-central1',
   },
   async (event) => {
     if (!event.data) {
