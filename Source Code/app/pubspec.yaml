@@ -33,6 +33,7 @@ dependencies:
   geocoding: ^5.0.0
   firebase_messaging: ^16.4.1
   flutter_local_notifications: ^22.0.1
+  flutter_svg: ^2.2.1
 
 dev_dependencies:
   flutter_test:
@@ -51,3 +52,4 @@ flutter:
     - assets/images/patterns/
     - assets/images/placeholders/
     - assets/images/homePageButtons/
+    - assets/images/branding/
