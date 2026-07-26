@@ -2,6 +2,11 @@
 
 const { haversineDistanceMeters } = require('./geo');
 
+const STALE_MESSAGING_TOKEN_ERROR_CODES = new Set([
+  'messaging/registration-token-not-registered',
+  'messaging/invalid-registration-token',
+]);
+
 // TODO(pre-launch): gate on org.verified === true once org signup opens to the
 // public (see org_map_verified_gate.md / map.dart's _fetchOrganizationMarkers
 // TODO — both must be re-gated together).
@@ -35,4 +40,8 @@ function filterNearbyOrgTokens({ orgs, centerLat, centerLng, radiusMeters }) {
   return tokenToOrg;
 }
 
-module.exports = { filterNearbyOrgTokens };
+function isStaleMessagingTokenErrorCode(code) {
+  return STALE_MESSAGING_TOKEN_ERROR_CODES.has(code);
+}
+
+module.exports = { filterNearbyOrgTokens, isStaleMessagingTokenErrorCode };
