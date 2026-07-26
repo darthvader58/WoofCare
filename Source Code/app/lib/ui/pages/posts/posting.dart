@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -6,6 +6,9 @@ import 'package:image_picker/image_picker.dart';
 import 'package:video_player/video_player.dart';
 import 'package:woofcare/config/colors.dart';
 import 'package:woofcare/services/post_media_service.dart';
+import 'package:woofcare/ui/widgets/responsive.dart';
+import 'package:woofcare/ui/widgets/video_preview_controller.dart';
+import 'package:woofcare/ui/widgets/web_design_system.dart';
 
 import '/config/constants.dart';
 import '/ui/widgets/custom_button.dart';
@@ -72,8 +75,18 @@ class _PostingPageState extends State<PostingPage> {
   Future<void> _setVideo(XFile? video) async {
     if (video == null) return;
 
-    final controller = VideoPlayerController.file(File(video.path));
-    await controller.initialize();
+    final controller = createVideoPreviewController(video);
+    try {
+      await controller.initialize();
+    } catch (_) {
+      controller.dispose();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Unable to preview this video.')),
+        );
+      }
+      return;
+    }
     if (!mounted) {
       controller.dispose();
       return;
@@ -101,48 +114,68 @@ class _PostingPageState extends State<PostingPage> {
   }) async {
     await showModalBottomSheet<void>(
       context: context,
-      backgroundColor: WoofCareColors.secondaryBackground,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      backgroundColor: WoofCareWebDesign.enabled
+          ? Colors.transparent
+          : WoofCareColors.secondaryBackground,
+      shape: RoundedRectangleBorder(
+        borderRadius: WoofCareWebDesign.enabled
+            ? BorderRadius.circular(14)
+            : const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (sheetContext) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(height: 8),
-              Container(
-                width: 44,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: WoofCareColors.buttonColor,
-                  borderRadius: BorderRadius.circular(10),
-                ),
+        return WoofCareSheetSurface(
+          maxWidth: 480,
+          child: Material(
+            color: WoofCareWebDesign.enabled
+                ? WoofCareWebDesign.surface
+                : WoofCareColors.secondaryBackground,
+            borderRadius: WoofCareWebDesign.enabled
+                ? BorderRadius.circular(14)
+                : const BorderRadius.vertical(top: Radius.circular(24)),
+            clipBehavior: Clip.antiAlias,
+            child: SafeArea(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(height: 8),
+                  Container(
+                    width: 44,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: WoofCareColors.buttonColor,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  ListTile(
+                    leading: const Icon(
+                      Icons.photo_library_outlined,
+                      color: WoofCareColors.primaryTextAndIcons,
+                    ),
+                    title: Text(
+                      title == 'Video'
+                          ? 'Choose from gallery'
+                          : 'Choose photos',
+                    ),
+                    onTap: () {
+                      Navigator.pop(sheetContext);
+                      onGallery();
+                    },
+                  ),
+                  ListTile(
+                    leading: const Icon(
+                      Icons.camera_alt_outlined,
+                      color: WoofCareColors.primaryTextAndIcons,
+                    ),
+                    title: const Text('Use camera'),
+                    onTap: () {
+                      Navigator.pop(sheetContext);
+                      onCamera();
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                ],
               ),
-              ListTile(
-                leading: const Icon(
-                  Icons.photo_library_outlined,
-                  color: WoofCareColors.primaryTextAndIcons,
-                ),
-                title: Text(title == 'Video' ? 'Choose from gallery' : 'Choose photos'),
-                onTap: () {
-                  Navigator.pop(sheetContext);
-                  onGallery();
-                },
-              ),
-              ListTile(
-                leading: const Icon(
-                  Icons.camera_alt_outlined,
-                  color: WoofCareColors.primaryTextAndIcons,
-                ),
-                title: const Text('Use camera'),
-                onTap: () {
-                  Navigator.pop(sheetContext);
-                  onCamera();
-                },
-              ),
-              const SizedBox(height: 8),
-            ],
+            ),
           ),
         );
       },
@@ -223,9 +256,12 @@ class _PostingPageState extends State<PostingPage> {
 
   @override
   Widget build(BuildContext context) {
+    final web = WoofCareWebDesign.enabled;
     return Container(
-      decoration: const BoxDecoration(
-        color: WoofCareColors.secondaryBackground,
+      decoration: BoxDecoration(
+        color: web
+            ? WoofCareWebDesign.surface
+            : WoofCareColors.secondaryBackground,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -266,15 +302,25 @@ class _PostingPageState extends State<PostingPage> {
               spacing: 10.0,
               children: [
                 CircleAvatar(
-                  backgroundColor: const Color(0xFFCAB096),
+                  backgroundColor: web
+                      ? WoofCareWebDesign.primary.withValues(alpha: 0.1)
+                      : const Color(0xFFCAB096),
                   child: Icon(
-                    Icons.person,
-                    color: WoofCareColors.primaryTextAndIcons,
+                    Icons.person_outline_rounded,
+                    color: web
+                        ? WoofCareWebDesign.primary
+                        : WoofCareColors.primaryTextAndIcons,
                   ),
                 ),
                 Text(
                   "${AUTH.currentUser!.email}",
-                  style: TextStyle(color: WoofCareColors.primaryTextAndIcons),
+                  style: TextStyle(
+                    color: web
+                        ? WoofCareWebDesign.text
+                        : WoofCareColors.primaryTextAndIcons,
+                    fontSize: web ? 13 : null,
+                    fontWeight: web ? FontWeight.w500 : null,
+                  ),
                 ),
               ],
             ),
@@ -317,32 +363,29 @@ class _PostingPageState extends State<PostingPage> {
                 enabled:
                     !_isPosting &&
                     _images.length < PostMediaService.maxImagesPerPost,
-                onTap:
-                    () => _showMediaSourceSheet(
-                      title: 'Photo',
-                      onGallery: _pickImagesFromGallery,
-                      onCamera: _pickImageFromCamera,
-                    ),
+                onTap: () => _showMediaSourceSheet(
+                  title: 'Photo',
+                  onGallery: _pickImagesFromGallery,
+                  onCamera: _pickImageFromCamera,
+                ),
               ),
               const SizedBox(width: 12),
               _MediaPickerButton(
                 icon: Icons.videocam_outlined,
                 label: 'Video',
                 enabled: !_isPosting && _video == null,
-                onTap:
-                    () => _showMediaSourceSheet(
-                      title: 'Video',
-                      onGallery: () async {
-                        final picked =
-                            await PostMediaService.pickVideoFromGallery();
-                        await _setVideo(picked);
-                      },
-                      onCamera: () async {
-                        final picked =
-                            await PostMediaService.pickVideoFromCamera();
-                        await _setVideo(picked);
-                      },
-                    ),
+                onTap: () => _showMediaSourceSheet(
+                  title: 'Video',
+                  onGallery: () async {
+                    final picked =
+                        await PostMediaService.pickVideoFromGallery();
+                    await _setVideo(picked);
+                  },
+                  onCamera: () async {
+                    final picked = await PostMediaService.pickVideoFromCamera();
+                    await _setVideo(picked);
+                  },
+                ),
               ),
             ],
           ),
@@ -446,12 +489,7 @@ class _ImagePreviewStrip extends StatelessWidget {
             children: [
               ClipRRect(
                 borderRadius: BorderRadius.circular(14),
-                child: Image.file(
-                  File(images[index].path),
-                  width: 96,
-                  height: 96,
-                  fit: BoxFit.cover,
-                ),
+                child: _XFileImagePreview(file: images[index]),
               ),
               if (onRemove != null)
                 Positioned(
@@ -481,6 +519,67 @@ class _ImagePreviewStrip extends StatelessWidget {
   }
 }
 
+class _XFileImagePreview extends StatefulWidget {
+  final XFile file;
+
+  const _XFileImagePreview({required this.file});
+
+  @override
+  State<_XFileImagePreview> createState() => _XFileImagePreviewState();
+}
+
+class _XFileImagePreviewState extends State<_XFileImagePreview> {
+  late Future<Uint8List> _bytes;
+
+  @override
+  void initState() {
+    super.initState();
+    _bytes = widget.file.readAsBytes();
+  }
+
+  @override
+  void didUpdateWidget(covariant _XFileImagePreview oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.file.path != widget.file.path) {
+      _bytes = widget.file.readAsBytes();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 96,
+      height: 96,
+      child: FutureBuilder<Uint8List>(
+        future: _bytes,
+        builder: (context, snapshot) {
+          if (snapshot.hasData) {
+            return Image.memory(snapshot.data!, fit: BoxFit.cover);
+          }
+          if (snapshot.hasError) {
+            return const ColoredBox(
+              color: WoofCareColors.textBoxColor,
+              child: Icon(
+                Icons.broken_image_outlined,
+                color: WoofCareColors.primaryTextAndIcons,
+              ),
+            );
+          }
+          return const ColoredBox(
+            color: WoofCareColors.textBoxColor,
+            child: Center(
+              child: CircularProgressIndicator(
+                color: WoofCareColors.buttonColor,
+                strokeWidth: 2,
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
 class _VideoPreview extends StatelessWidget {
   final VideoPlayerController? controller;
   final VoidCallback? onRemove;
@@ -500,15 +599,14 @@ class _VideoPreview extends StatelessWidget {
             width: double.infinity,
             height: 180,
             color: Colors.black,
-            child:
-                ready
-                    ? AspectRatio(
-                      aspectRatio: controller!.value.aspectRatio,
-                      child: VideoPlayer(controller!),
-                    )
-                    : const Center(
-                      child: CircularProgressIndicator(color: Colors.white),
-                    ),
+            child: ready
+                ? AspectRatio(
+                    aspectRatio: controller!.value.aspectRatio,
+                    child: VideoPlayer(controller!),
+                  )
+                : const Center(
+                    child: CircularProgressIndicator(color: Colors.white),
+                  ),
           ),
         ),
         if (ready)

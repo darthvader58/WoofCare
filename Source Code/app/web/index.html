@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <!--
+    This placeholder is replaced by Flutter's --base-href value at build time.
+    WoofCare is deployed at the domain root, so the default value is "/".
+  -->
+  <base href="$FLUTTER_BASE_HREF">
+
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="description" content="WoofCare helps communities report, locate, and care for stray dogs in need.">
+  <meta name="theme-color" content="#734C28">
+
+  <!-- Mobile/PWA metadata -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="WoofCare">
+  <link rel="apple-touch-icon" href="icons/Icon-180.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon.png">
+  <link rel="manifest" href="manifest.json">
+
+  <title>WoofCare</title>
+
+  <!--
+    tool/build_web.sh replaces this marker in build/web/index.html with the
+    Google Maps JavaScript API script. The key is never written to source.
+  -->
+  <!-- WOOFCARE_GOOGLE_MAPS_SCRIPT -->
+</head>
+<body>
+  <noscript>WoofCare requires JavaScript to run.</noscript>
+
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('firebase-messaging-sw.js', {
+          scope: '/firebase-cloud-messaging-push-scope',
+        }).catch((error) => {
+          console.error('Firebase messaging service worker registration failed.', error);
+        });
+      });
+    }
+  </script>
+  <script src="flutter_bootstrap.js" async></script>
+</body>
+</html>

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:woofcare/config/colors.dart';
+import 'package:woofcare/ui/widgets/web_design_system.dart';
 
 import '/config/constants.dart';
 
@@ -40,6 +41,44 @@ class CustomTextField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (WoofCareWebDesign.enabled) {
+      return Padding(
+        padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+        child: TextField(
+          controller: controller,
+          keyboardType: keyboardType,
+          autofocus: autofocus,
+          obscureText: obscureText,
+          onTap: onTap,
+          maxLines: maxLines,
+          minLines: minLines,
+          style: const TextStyle(
+            color: WoofCareWebDesign.text,
+            fontSize: 14,
+            height: 1.3,
+          ),
+          decoration: InputDecoration(
+            hintText: hintText,
+            prefixIcon: prefix == null
+                ? null
+                : Icon(prefix, color: WoofCareWebDesign.textMuted, size: 19),
+            suffixIcon: suffix == null
+                ? null
+                : onSuffixTap == null
+                ? Icon(suffix, color: WoofCareWebDesign.textMuted, size: 19)
+                : IconButton(
+                    onPressed: onSuffixTap,
+                    icon: Icon(
+                      suffix,
+                      color: WoofCareWebDesign.textMuted,
+                      size: 19,
+                    ),
+                  ),
+          ),
+        ),
+      );
+    }
+
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
       child: TextField(
@@ -82,22 +121,20 @@ class CustomTextField extends StatelessWidget {
           filled: true,
 
           //make it so no icon space is taken if no icon is provided
-          suffixIcon:
-              suffix != null
-                  ? (onSuffixTap != null
-                      ? IconButton(
+          suffixIcon: suffix != null
+              ? (onSuffixTap != null
+                    ? IconButton(
                         icon: Icon(
                           suffix,
                           color: WoofCareColors.primaryTextAndIcons,
                         ),
                         onPressed: onSuffixTap,
                       )
-                      : Icon(suffix, color: WoofCareColors.primaryTextAndIcons))
-                  : null,
-          prefixIcon:
-              prefix != null
-                  ? Icon(prefix, color: WoofCareColors.primaryTextAndIcons)
-                  : null,
+                    : Icon(suffix, color: WoofCareColors.primaryTextAndIcons))
+              : null,
+          prefixIcon: prefix != null
+              ? Icon(prefix, color: WoofCareColors.primaryTextAndIcons)
+              : null,
 
           //hint style
           hintText: hintText,

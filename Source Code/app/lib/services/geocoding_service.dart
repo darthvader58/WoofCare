@@ -1,4 +1,8 @@
-import 'package:geocoding/geocoding.dart';
+import 'package:flutter/foundation.dart';
+
+import 'geocoding_provider_native.dart'
+    if (dart.library.js_interop) 'geocoding_provider_web.dart'
+    as geocoding_provider;
 
 class GeocodedCoordinates {
   final double latitude;
@@ -7,9 +11,9 @@ class GeocodedCoordinates {
   const GeocodedCoordinates({required this.latitude, required this.longitude});
 }
 
-/// Turns a human-entered address into map coordinates using the platform
-/// geocoder (Android Geocoder / iOS CLGeocoder). This needs no API key and no
-/// billing, so it works while Firebase billing is on the free plan.
+/// Turns a human-entered address into map coordinates using the native
+/// platform geocoder on Android/iOS and the loaded Google Maps JavaScript API
+/// in a browser.
 class GeocodingService {
   /// Builds a single query string from the parts an organization enters at
   /// signup, dropping any that are blank.
@@ -34,18 +38,28 @@ class GeocodingService {
     if (address.trim().isEmpty) return null;
 
     try {
-      final results = await Geocoding()
-          .locationFromAddress(address)
-          .timeout(timeout);
-      if (results.isEmpty) return null;
-
-      final match = results.first;
-      return GeocodedCoordinates(
-        latitude: match.latitude,
-        longitude: match.longitude,
+      final result = await geocoding_provider.coordinatesForAddress(
+        address.trim(),
+        timeout: timeout,
       );
-    } catch (_) {
+      return coordinatesFromResult(result);
+    } catch (error, stackTrace) {
+      debugPrint('[GeocodingService] Address geocoding failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
       return null;
     }
+  }
+
+  /// Converts the common native/web lookup result into the public value type.
+  @visibleForTesting
+  static GeocodedCoordinates? coordinatesFromResult(
+    ({num latitude, num longitude})? result,
+  ) {
+    if (result == null) return null;
+
+    return GeocodedCoordinates(
+      latitude: result.latitude.toDouble(),
+      longitude: result.longitude.toDouble(),
+    );
   }
 }

@@ -5,6 +5,8 @@ import 'package:woofcare/config/colors.dart';
 import 'package:woofcare/models/profile.dart';
 import 'package:woofcare/services/location_privacy.dart';
 import 'package:woofcare/ui/pages/profile/profile.dart';
+import 'package:woofcare/ui/widgets/responsive.dart';
+import 'package:woofcare/ui/widgets/web_design_system.dart';
 
 import '/config/constants.dart';
 
@@ -61,6 +63,7 @@ class _ChatPageState extends State<ChatPage> {
     String participant,
     Map<String, dynamic> conversationData,
   ) {
+    final web = WoofCareWebDesign.enabled;
     final displayParticipant = _displayParticipant(
       participant,
       conversationData,
@@ -68,70 +71,93 @@ class _ChatPageState extends State<ChatPage> {
     final profileLookupName = _profileLookupName(participant, conversationData);
 
     return Scaffold(
-      backgroundColor: WoofCareColors.offWhite,
+      backgroundColor: web ? WoofCareWebDesign.canvas : WoofCareColors.offWhite,
       appBar: AppBar(
-        backgroundColor: WoofCareColors.offWhite,
-        elevation: 3,
+        backgroundColor: web
+            ? WoofCareWebDesign.surface
+            : WoofCareColors.offWhite,
+        elevation: web ? 0 : 3,
         shadowColor: WoofCareColors.cardShadow,
-        toolbarHeight: 72,
+        toolbarHeight: web ? 68 : 72,
+        shape: web
+            ? const Border(bottom: BorderSide(color: WoofCareWebDesign.border))
+            : null,
         iconTheme: IconThemeData(
-          color: WoofCareColors.primaryTextAndIcons,
-          size: 26,
+          color: web
+              ? WoofCareWebDesign.textMuted
+              : WoofCareColors.primaryTextAndIcons,
+          size: web ? 22 : 26,
         ),
-        actions:
-            _isAnonymousDisplay(displayParticipant)
-                ? []
-                : [
-                  Padding(
-                    padding: const EdgeInsets.only(right: 12),
-                    child: IconButton.filledTonal(
-                      style: IconButton.styleFrom(
-                        backgroundColor: WoofCareColors.floatingActionIcons
-                            .withValues(alpha: 0.14),
-                        foregroundColor: WoofCareColors.floatingActionIcons,
-                      ),
-                      icon: const Icon(Icons.phone_rounded),
-                      onPressed: () {},
+        actions: _isAnonymousDisplay(displayParticipant)
+            ? []
+            : [
+                Padding(
+                  padding: const EdgeInsets.only(right: 12),
+                  child: IconButton.filledTonal(
+                    style: IconButton.styleFrom(
+                      backgroundColor: web
+                          ? WoofCareWebDesign.primary.withValues(alpha: 0.08)
+                          : WoofCareColors.floatingActionIcons.withValues(
+                              alpha: 0.14,
+                            ),
+                      foregroundColor: web
+                          ? WoofCareWebDesign.primary
+                          : WoofCareColors.floatingActionIcons,
                     ),
+                    icon: const Icon(Icons.phone_rounded),
+                    onPressed: () {},
                   ),
-                ],
+                ),
+              ],
         title: GestureDetector(
-          onTap:
-              profileLookupName == null
-                  ? null
-                  : () async {
-                    final userProfile = await Profile.fromName(
-                      profileLookupName,
+          onTap: profileLookupName == null
+              ? null
+              : () async {
+                  final userProfile = await Profile.fromName(profileLookupName);
+                  if (userProfile != null && context.mounted) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ProfilePage(user: userProfile),
+                      ),
                     );
-                    if (userProfile != null && context.mounted) {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => ProfilePage(user: userProfile),
-                        ),
-                      );
-                    }
-                  },
+                  }
+                },
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               CircleAvatar(
-                backgroundColor:
-                    _isAnonymousDisplay(displayParticipant)
-                        ? WoofCareColors.buttonColor
-                        : WoofCareColors.backgroundElementColor,
-                radius: 22,
-                backgroundImage:
-                    _isAnonymousDisplay(displayParticipant)
-                        ? null
-                        : const AssetImage("assets/images/placeholders/1.jpg"),
-                child:
-                    _isAnonymousDisplay(displayParticipant)
-                        ? const Icon(
-                          Icons.visibility_off_rounded,
-                          color: WoofCareColors.offWhite,
-                        )
-                        : null,
+                backgroundColor: _isAnonymousDisplay(displayParticipant)
+                    ? web
+                          ? WoofCareWebDesign.primary
+                          : WoofCareColors.buttonColor
+                    : web
+                    ? WoofCareWebDesign.primary.withValues(alpha: 0.1)
+                    : WoofCareColors.backgroundElementColor,
+                radius: web ? 19 : 22,
+                backgroundImage: web || _isAnonymousDisplay(displayParticipant)
+                    ? null
+                    : const AssetImage("assets/images/placeholders/1.jpg"),
+                child: _isAnonymousDisplay(displayParticipant)
+                    ? Icon(
+                        Icons.visibility_off_rounded,
+                        color: web
+                            ? WoofCareWebDesign.onPrimary
+                            : WoofCareColors.offWhite,
+                        size: web ? 17 : 24,
+                      )
+                    : web
+                    ? Text(
+                        displayParticipant.trim().isEmpty
+                            ? '?'
+                            : displayParticipant.trim()[0].toUpperCase(),
+                        style: const TextStyle(
+                          color: WoofCareWebDesign.primary,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      )
+                    : null,
               ),
               const SizedBox(width: 10),
               Flexible(
@@ -143,18 +169,22 @@ class _ChatPageState extends State<ChatPage> {
                       displayParticipant,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: WoofCareColors.primaryTextAndIcons,
-                        fontFamily: "ABeeZee",
-                        fontSize: 17,
-                        fontWeight: FontWeight.w800,
+                      style: TextStyle(
+                        color: web
+                            ? WoofCareWebDesign.text
+                            : WoofCareColors.primaryTextAndIcons,
+                        fontFamily: web ? null : "ABeeZee",
+                        fontSize: web ? 15 : 17,
+                        fontWeight: web ? FontWeight.w600 : FontWeight.w800,
                       ),
                     ),
                     Text(
                       "Active now",
                       style: TextStyle(
-                        color: WoofCareColors.mutedText.withValues(alpha: 0.78),
-                        fontSize: 12,
+                        color: web
+                            ? WoofCareWebDesign.textMuted
+                            : WoofCareColors.mutedText.withValues(alpha: 0.78),
+                        fontSize: web ? 11 : 12,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -169,19 +199,22 @@ class _ChatPageState extends State<ChatPage> {
       body: SafeArea(
         top: false,
         bottom: false,
-        child: Column(
-          children: [
-            _ReportLocationConsentPanel(
-              chatId: chatID,
-              conversationData: conversationData,
-            ),
-            _Messages(chatId: chatID, conversationData: conversationData),
-            _ChatComposer(
-              controller: _messageController,
-              sendDisabled: _isSendButtonDisabled,
-              onSend: () => submit(context),
-            ),
-          ],
+        child: WoofCareContentSurface(
+          maxWidth: web ? 1040 : 900,
+          child: Column(
+            children: [
+              _ReportLocationConsentPanel(
+                chatId: chatID,
+                conversationData: conversationData,
+              ),
+              _Messages(chatId: chatID, conversationData: conversationData),
+              _ChatComposer(
+                controller: _messageController,
+                sendDisabled: _isSendButtonDisabled,
+                onSend: () => submit(context),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -304,10 +337,12 @@ class _ReportLocationConsentPanelState
     }
 
     final reportId = widget.conversationData['reportId']?.toString().trim();
-    final reporterUserId =
-        widget.conversationData['reporterUserId']?.toString().trim();
-    final requesterUserId =
-        widget.conversationData['requesterUserId']?.toString().trim();
+    final reporterUserId = widget.conversationData['reporterUserId']
+        ?.toString()
+        .trim();
+    final requesterUserId = widget.conversationData['requesterUserId']
+        ?.toString()
+        .trim();
 
     if (reportId == null || reportId.isEmpty) {
       return const SizedBox.shrink();
@@ -355,11 +390,10 @@ class _ReportLocationConsentPanelState
         }
 
         return StreamBuilder<DocumentSnapshot>(
-          stream:
-              FIRESTORE
-                  .collection('report_location_grants')
-                  .doc(grantContext.grantDocumentId)
-                  .snapshots(),
+          stream: FIRESTORE
+              .collection('report_location_grants')
+              .doc(grantContext.grantDocumentId)
+              .snapshots(),
           builder: (context, grantSnapshot) {
             final grantData =
                 grantSnapshot.data?.data() as Map<String, dynamic>?;
@@ -374,18 +408,17 @@ class _ReportLocationConsentPanelState
               return _LocationConsentShell(
                 icon: Icons.verified_rounded,
                 title: 'Exact location shared',
-                message:
-                    grantContext.isRequester
-                        ? 'The reporter shared this report location with you.'
-                        : 'This helper can now access the exact report location.',
-                actionLabel:
-                    grantContext.isRequester ? 'View exact location' : null,
+                message: grantContext.isRequester
+                    ? 'The reporter shared this report location with you.'
+                    : 'This helper can now access the exact report location.',
+                actionLabel: grantContext.isRequester
+                    ? 'View exact location'
+                    : null,
                 actionIcon: Icons.map_rounded,
                 busy: _isResolving,
-                onAction:
-                    grantContext.isRequester
-                        ? () => _showExactLocation(grantContext)
-                        : null,
+                onAction: grantContext.isRequester
+                    ? () => _showExactLocation(grantContext)
+                    : null,
               );
             }
 
@@ -445,23 +478,22 @@ class _ReportLocationConsentPanelState
   ) async {
     final shouldGrant = await showDialog<bool>(
       context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Share exact location?'),
-            content: const Text(
-              'Only this chat helper will be granted access. Your anonymous reporter display stays private.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancel'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text('Share'),
-              ),
-            ],
+      builder: (context) => AlertDialog(
+        title: const Text('Share exact location?'),
+        content: const Text(
+          'Only this chat helper will be granted access. Your anonymous reporter display stays private.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
           ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Share'),
+          ),
+        ],
+      ),
     );
 
     if (shouldGrant != true || !mounted) return;
@@ -514,24 +546,23 @@ class _ReportLocationConsentPanelState
 
       await showDialog<void>(
         context: context,
-        builder:
-            (context) => AlertDialog(
-              title: const Text('Exact location'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Latitude: ${location.latitude.toStringAsFixed(6)}'),
-                  Text('Longitude: ${location.longitude.toStringAsFixed(6)}'),
-                ],
-              ),
-              actions: [
-                FilledButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Done'),
-                ),
-              ],
+        builder: (context) => AlertDialog(
+          title: const Text('Exact location'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Latitude: ${location.latitude.toStringAsFixed(6)}'),
+              Text('Longitude: ${location.longitude.toStringAsFixed(6)}'),
+            ],
+          ),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Done'),
             ),
+          ],
+        ),
       );
     } catch (error) {
       if (mounted) {
@@ -633,14 +664,13 @@ class _LocationConsentShell extends StatelessWidget {
                 visualDensity: VisualDensity.compact,
               ),
               onPressed: busy ? null : onAction,
-              icon:
-                  busy
-                      ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                      : Icon(actionIcon, size: 18),
+              icon: busy
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Icon(actionIcon, size: 18),
               label: Text(
                 actionLabel!,
                 style: const TextStyle(fontWeight: FontWeight.w800),
@@ -682,13 +712,12 @@ class _Messages extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<QuerySnapshot>(
-      stream:
-          FIRESTORE
-              .collection("conversations")
-              .doc(chatId)
-              .collection("messages")
-              .orderBy("time", descending: true)
-              .snapshots(),
+      stream: FIRESTORE
+          .collection("conversations")
+          .doc(chatId)
+          .collection("messages")
+          .orderBy("time", descending: true)
+          .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return Expanded(
@@ -729,10 +758,9 @@ class _Messages extends StatelessWidget {
               text: data['text']?.toString() ?? '',
               sender: _senderDisplayName(sender, senderId),
               time: data['time'] as Timestamp,
-              isSelf:
-                  senderId != null
-                      ? senderId == profile.id
-                      : profile.name == sender,
+              isSelf: senderId != null
+                  ? senderId == profile.id
+                  : profile.name == sender,
             ),
           );
         }
@@ -759,12 +787,12 @@ class _Messages extends StatelessWidget {
     final reporterName = conversationData['reporterName']?.toString();
     final requesterName = conversationData['requesterName']?.toString();
 
-    final isReporterMessage =
-        senderId != null ? senderId == reporterUserId : sender == reporterName;
-    final isRequesterMessage =
-        senderId != null
-            ? senderId == requesterUserId
-            : sender == requesterName;
+    final isReporterMessage = senderId != null
+        ? senderId == reporterUserId
+        : sender == reporterName;
+    final isRequesterMessage = senderId != null
+        ? senderId == requesterUserId
+        : sender == requesterName;
 
     if (isReporterMessage && conversationData['anonymousReporter'] == true) {
       return 'Anonymous Reporter';
@@ -795,18 +823,22 @@ class _Message extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final timeLabel = DateFormat('h:mm a').format(time.toDate());
+    final web = WoofCareWebDesign.enabled;
 
     return Align(
       alignment: isSelf ? Alignment.centerRight : Alignment.centerLeft,
       child: ConstrainedBox(
         constraints: BoxConstraints(
-          maxWidth: MediaQuery.sizeOf(context).width * 0.76,
+          maxWidth: MediaQuery.sizeOf(context).width < 820
+              ? MediaQuery.sizeOf(context).width * 0.76
+              : 620,
         ),
         child: Padding(
-          padding: const EdgeInsets.only(bottom: 12),
+          padding: EdgeInsets.only(bottom: web ? 10 : 12),
           child: Column(
-            crossAxisAlignment:
-                isSelf ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+            crossAxisAlignment: isSelf
+                ? CrossAxisAlignment.end
+                : CrossAxisAlignment.start,
             children: [
               if (!isSelf)
                 Padding(
@@ -816,44 +848,59 @@ class _Message extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: WoofCareColors.mutedText.withValues(alpha: 0.82),
+                      color: web
+                          ? WoofCareWebDesign.textMuted
+                          : WoofCareColors.mutedText.withValues(alpha: 0.82),
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 11,
+                padding: EdgeInsets.symmetric(
+                  horizontal: web ? 14 : 16,
+                  vertical: web ? 10 : 11,
                 ),
                 decoration: BoxDecoration(
-                  color:
-                      isSelf
-                          ? WoofCareColors.buttonColor
-                          : WoofCareColors.secondaryBackground,
-                  borderRadius: BorderRadius.only(
-                    topLeft: const Radius.circular(20),
-                    topRight: const Radius.circular(20),
-                    bottomLeft: Radius.circular(isSelf ? 20 : 6),
-                    bottomRight: Radius.circular(isSelf ? 6 : 20),
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.08),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
+                  color: isSelf
+                      ? web
+                            ? WoofCareWebDesign.primary
+                            : WoofCareColors.buttonColor
+                      : web
+                      ? WoofCareWebDesign.surface
+                      : WoofCareColors.secondaryBackground,
+                  borderRadius: web
+                      ? BorderRadius.circular(8)
+                      : BorderRadius.only(
+                          topLeft: const Radius.circular(20),
+                          topRight: const Radius.circular(20),
+                          bottomLeft: Radius.circular(isSelf ? 20 : 6),
+                          bottomRight: Radius.circular(isSelf ? 6 : 20),
+                        ),
+                  border: web && !isSelf
+                      ? Border.all(color: WoofCareWebDesign.border)
+                      : null,
+                  boxShadow: web
+                      ? null
+                      : [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.08),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
                 ),
                 child: Text(
                   text,
                   style: TextStyle(
-                    color:
-                        isSelf
-                            ? WoofCareColors.offWhite
-                            : WoofCareColors.primaryTextAndIcons,
-                    fontSize: 16,
+                    color: isSelf
+                        ? web
+                              ? Colors.white
+                              : WoofCareColors.offWhite
+                        : web
+                        ? WoofCareWebDesign.text
+                        : WoofCareColors.primaryTextAndIcons,
+                    fontSize: web ? 14 : 16,
                     height: 1.32,
                     fontWeight: FontWeight.w500,
                   ),
@@ -864,7 +911,9 @@ class _Message extends StatelessWidget {
                 child: Text(
                   timeLabel,
                   style: TextStyle(
-                    color: WoofCareColors.mutedText.withValues(alpha: 0.62),
+                    color: web
+                        ? WoofCareWebDesign.textMuted
+                        : WoofCareColors.mutedText.withValues(alpha: 0.62),
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
                   ),
@@ -891,27 +940,32 @@ class _ChatComposer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final web = WoofCareWebDesign.enabled;
     return Container(
       padding: EdgeInsets.fromLTRB(
-        14,
-        10,
-        14,
+        web ? 20 : 14,
+        web ? 14 : 10,
+        web ? 20 : 14,
         10 + MediaQuery.paddingOf(context).bottom,
       ),
       decoration: BoxDecoration(
-        color: WoofCareColors.offWhite,
+        color: web ? WoofCareWebDesign.surface : WoofCareColors.offWhite,
         border: Border(
           top: BorderSide(
-            color: WoofCareColors.primaryTextAndIcons.withValues(alpha: 0.1),
+            color: web
+                ? WoofCareWebDesign.border
+                : WoofCareColors.primaryTextAndIcons.withValues(alpha: 0.1),
           ),
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 18,
-            offset: const Offset(0, -5),
-          ),
-        ],
+        boxShadow: web
+            ? null
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.08),
+                  blurRadius: 18,
+                  offset: const Offset(0, -5),
+                ),
+              ],
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
@@ -923,41 +977,65 @@ class _ChatComposer extends StatelessWidget {
               maxLines: 5,
               keyboardType: TextInputType.multiline,
               textInputAction: TextInputAction.newline,
-              style: const TextStyle(
-                color: WoofCareColors.primaryTextAndIcons,
-                fontSize: 16,
+              style: TextStyle(
+                color: web
+                    ? WoofCareWebDesign.text
+                    : WoofCareColors.primaryTextAndIcons,
+                fontSize: web ? 14 : 16,
                 height: 1.25,
               ),
               decoration: InputDecoration(
                 hintText: "Message",
                 hintStyle: TextStyle(
-                  color: WoofCareColors.primaryTextAndIcons.withValues(
-                    alpha: 0.5,
-                  ),
+                  color: web
+                      ? WoofCareWebDesign.textMuted
+                      : WoofCareColors.primaryTextAndIcons.withValues(
+                          alpha: 0.5,
+                        ),
                   fontWeight: FontWeight.w600,
                 ),
                 filled: true,
-                fillColor: WoofCareColors.textBoxColor.withValues(alpha: 0.72),
+                fillColor: web
+                    ? WoofCareWebDesign.surfaceMuted
+                    : WoofCareColors.textBoxColor.withValues(alpha: 0.72),
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: 18,
                   vertical: 13,
                 ),
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(24),
-                  borderSide: BorderSide.none,
+                  borderRadius: BorderRadius.circular(web ? 8 : 24),
+                  borderSide: web
+                      ? const BorderSide(color: WoofCareWebDesign.border)
+                      : BorderSide.none,
                 ),
+                enabledBorder: web
+                    ? OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(
+                          color: WoofCareWebDesign.border,
+                        ),
+                      )
+                    : null,
               ),
             ),
           ),
           const SizedBox(width: 10),
           IconButton.filled(
             style: IconButton.styleFrom(
-              backgroundColor:
-                  sendDisabled
-                      ? WoofCareColors.gray
-                      : WoofCareColors.buttonColor,
-              foregroundColor: WoofCareColors.offWhite,
-              fixedSize: const Size(48, 48),
+              backgroundColor: sendDisabled
+                  ? web
+                        ? WoofCareWebDesign.border
+                        : WoofCareColors.gray
+                  : web
+                  ? WoofCareWebDesign.primary
+                  : WoofCareColors.buttonColor,
+              foregroundColor: web
+                  ? WoofCareWebDesign.onPrimary
+                  : WoofCareColors.offWhite,
+              fixedSize: Size(web ? 44 : 48, web ? 44 : 48),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(web ? 8 : 24),
+              ),
             ),
             onPressed: sendDisabled ? null : onSend,
             icon: const Icon(Icons.arrow_upward_rounded),

@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:location/location.dart';
 import 'package:woofcare/config/colors.dart';
 import 'package:woofcare/services/location_privacy.dart';
+import 'package:woofcare/ui/widgets/web_design_system.dart';
 
 import '/config/constants.dart';
 import '/ui/widgets/custom_button.dart';
@@ -38,36 +39,45 @@ class _ReportPageState extends State<ReportPage> {
   bool anonymousReport = false;
   bool shareReporterPhone = false;
 
-  void submitReport() async {
+  Future<void> submitReport() async {
     double? latitude;
     double? longitude;
 
     // if (useCurrentLocation) {
-    Location location = Location();
+    final location = Location();
 
-    bool serviceEnabled;
-    PermissionStatus permissionGranted;
-    LocationData locationData;
-
-    serviceEnabled = await location.serviceEnabled();
-    if (!serviceEnabled) {
-      serviceEnabled = await location.requestService();
+    try {
+      var serviceEnabled = await location.serviceEnabled();
       if (!serviceEnabled) {
+        serviceEnabled = await location.requestService();
+        if (!serviceEnabled) {
+          _showLocationError(
+            'Turn on Location Services to attach this report to the map.',
+          );
+          return;
+        }
+      }
+
+      var permission = await location.hasPermission();
+      if (permission == PermissionStatus.denied) {
+        permission = await location.requestPermission();
+      }
+      if (!_isUsableLocationPermission(permission)) {
+        _showLocationError(
+          'Location access is required to submit a map-based report.',
+        );
         return;
       }
-    }
 
-    permissionGranted = await location.hasPermission();
-    if (permissionGranted == PermissionStatus.denied) {
-      permissionGranted = await location.requestPermission();
-      if (permissionGranted != PermissionStatus.granted) {
-        return;
-      }
+      final locationData = await location.getLocation();
+      latitude = locationData.latitude;
+      longitude = locationData.longitude;
+    } catch (_) {
+      _showLocationError(
+        'Unable to resolve your location. Check permission and try again.',
+      );
+      return;
     }
-
-    locationData = await location.getLocation();
-    latitude = locationData.latitude;
-    longitude = locationData.longitude;
     // }
 
     if (latitude == null || longitude == null) {
@@ -98,8 +108,9 @@ class _ReportPageState extends State<ReportPage> {
       'userID': profile.id,
       'reporterName': anonymousReport ? null : profile.name,
       'shareReporterPhone': shareReporterPhone,
-      'reporterPhone':
-          !anonymousReport && shareReporterPhone ? profile.phone : null,
+      'reporterPhone': !anonymousReport && shareReporterPhone
+          ? profile.phone
+          : null,
       'reporterEmail': anonymousReport ? null : profile.email,
       'title': _reportTitleController.text,
       'description': _dogDescriptionController.text,
@@ -148,6 +159,21 @@ class _ReportPageState extends State<ReportPage> {
     }
   }
 
+  bool _isUsableLocationPermission(PermissionStatus permission) {
+    return permission == PermissionStatus.granted ||
+        permission == PermissionStatus.grantedLimited;
+  }
+
+  void _showLocationError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: WoofCareColors.errorMessageColor,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
@@ -158,7 +184,9 @@ class _ReportPageState extends State<ReportPage> {
         top: 20,
       ),
       child: Container(
-        color: WoofCareColors.secondaryBackground,
+        color: WoofCareWebDesign.enabled
+            ? WoofCareWebDesign.surface
+            : WoofCareColors.secondaryBackground,
 
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -256,33 +284,45 @@ class _ReportPageState extends State<ReportPage> {
   }
 
   Widget _buildSectionHeader(String title) {
+    final web = WoofCareWebDesign.enabled;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
       child: Text(
         title,
-        style: GoogleFonts.aBeeZee(
-          fontSize: 18,
-          fontWeight: FontWeight.bold,
-          color: WoofCareColors.primaryTextAndIcons,
-        ),
+        style: web
+            ? const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.3,
+                color: WoofCareWebDesign.text,
+              )
+            : GoogleFonts.aBeeZee(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: WoofCareColors.primaryTextAndIcons,
+              ),
       ),
     );
   }
 
   Widget _buildCard({required List<Widget> children}) {
+    final web = WoofCareWebDesign.enabled;
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        color: WoofCareWebDesign.surface,
+        borderRadius: BorderRadius.circular(web ? 10 : 16),
+        border: web ? Border.all(color: WoofCareWebDesign.border) : null,
+        boxShadow: web
+            ? null
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
       ),
       child: Column(children: children),
     );
@@ -327,16 +367,15 @@ class _ReportPageState extends State<ReportPage> {
           Icons.arrow_drop_down,
           color: WoofCareColors.primaryTextAndIcons,
         ),
-        items:
-            urgencyList.map((String value) {
-              return DropdownMenuItem<String>(
-                value: value,
-                child: Text(
-                  value,
-                  style: const TextStyle(color: Colors.black, fontSize: 14),
-                ),
-              );
-            }).toList(),
+        items: urgencyList.map((String value) {
+          return DropdownMenuItem<String>(
+            value: value,
+            child: Text(
+              value,
+              style: const TextStyle(color: Colors.black, fontSize: 14),
+            ),
+          );
+        }).toList(),
         onChanged: (newValue) => setState(() => dropdownValue = newValue),
       ),
     );

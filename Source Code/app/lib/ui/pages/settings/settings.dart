@@ -3,6 +3,8 @@ import 'package:woofcare/config/constants.dart';
 import 'package:woofcare/services/auth.dart';
 import 'package:woofcare/ui/pages/export.dart';
 import 'package:woofcare/ui/widgets/custom_button.dart';
+import 'package:woofcare/ui/widgets/responsive.dart';
+import 'package:woofcare/ui/widgets/web_design_system.dart';
 
 import '/config/colors.dart' as app_colors;
 import '/ui/widgets/custom_textfield.dart';
@@ -31,19 +33,28 @@ class _SettingsPageState extends State<SettingsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final web = WoofCareWebDesign.enabled;
+
     return Scaffold(
-      backgroundColor: app_colors.WoofCareColors.secondaryBackground,
+      backgroundColor: web
+          ? WoofCareWebDesign.canvas
+          : app_colors.WoofCareColors.secondaryBackground,
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           "Settings",
           style: TextStyle(
-            color: app_colors.WoofCareColors.primaryTextAndIcons,
-            fontWeight: FontWeight.bold,
+            color: web
+                ? WoofCareWebDesign.text
+                : app_colors.WoofCareColors.primaryTextAndIcons,
+            fontWeight: web ? FontWeight.w600 : FontWeight.bold,
           ),
         ),
-        centerTitle: true,
-        backgroundColor: Colors.transparent,
+        centerTitle: !web,
+        backgroundColor: web ? WoofCareWebDesign.surface : Colors.transparent,
         elevation: 0,
+        shape: web
+            ? const Border(bottom: BorderSide(color: WoofCareWebDesign.border))
+            : null,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new, size: 20),
           color: app_colors.WoofCareColors.primaryTextAndIcons,
@@ -53,198 +64,210 @@ class _SettingsPageState extends State<SettingsPage> {
       body: Stack(
         children: [
           // Background images
-          Align(
-            alignment: Alignment.topLeft,
-            child: Opacity(
-              opacity: 0.6,
-              child: Image.asset(
-                "assets/images/patterns/BigPawPattern.png",
-                width: 200,
+          if (!web) ...[
+            Align(
+              alignment: Alignment.topLeft,
+              child: Opacity(
+                opacity: 0.6,
+                child: Image.asset(
+                  "assets/images/patterns/BigPawPattern.png",
+                  width: 200,
+                ),
               ),
             ),
-          ),
-          Align(
-            alignment: Alignment.bottomRight,
-            child: Opacity(
-              opacity: 0.6,
-              child: Image.asset(
-                "assets/images/patterns/SmallPawPattern.png",
-                width: 150,
+            Align(
+              alignment: Alignment.bottomRight,
+              child: Opacity(
+                opacity: 0.6,
+                child: Image.asset(
+                  "assets/images/patterns/SmallPawPattern.png",
+                  width: 150,
+                ),
               ),
             ),
-          ),
+          ],
 
           // Content
-          SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildSectionHeader("Account"),
-                _buildSectionCard([
-                  _buildExpansionTile(
-                    icon: Icons.email_outlined,
-                    title: "Change Email",
-                    children: [
-                      _buildTextField(_emailTextController, "New Email"),
-                      const SizedBox(height: 10),
-                      _buildTextField(
-                        _emailTextController,
-                        "Confirm New Email",
+          Positioned.fill(
+            child: WoofCareContentSurface(
+              maxWidth: web ? 900 : 760,
+              child: SingleChildScrollView(
+                padding: EdgeInsets.all(web ? 32 : 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildSectionHeader("Account"),
+                    _buildSectionCard([
+                      _buildExpansionTile(
+                        icon: Icons.email_outlined,
+                        title: "Change Email",
+                        children: [
+                          _buildTextField(_emailTextController, "New Email"),
+                          const SizedBox(height: 10),
+                          _buildTextField(
+                            _emailTextController,
+                            "Confirm New Email",
+                          ),
+                          const SizedBox(height: 12),
+                          _buildSaveButton(),
+                        ],
                       ),
-                      const SizedBox(height: 12),
-                      _buildSaveButton(),
-                    ],
-                  ),
-                  _buildDivider(),
-                  _buildExpansionTile(
-                    icon: Icons.lock_outline,
-                    title: "Change Password",
-                    children: [
-                      _buildTextField(_passwordTextController, "New Password"),
-                      const SizedBox(height: 10),
-                      _buildTextField(
-                        _passwordTextController,
-                        "Confirm New Password",
+                      _buildDivider(),
+                      _buildExpansionTile(
+                        icon: Icons.lock_outline,
+                        title: "Change Password",
+                        children: [
+                          _buildTextField(
+                            _passwordTextController,
+                            "New Password",
+                          ),
+                          const SizedBox(height: 10),
+                          _buildTextField(
+                            _passwordTextController,
+                            "Confirm New Password",
+                          ),
+                          const SizedBox(height: 12),
+                          _buildSaveButton(),
+                        ],
                       ),
-                      const SizedBox(height: 12),
-                      _buildSaveButton(),
-                    ],
-                  ),
-                ]),
+                    ]),
 
-                const SizedBox(height: 24),
-                _buildSectionHeader("Preferences"),
-                _buildSectionCard([
-                  _buildDropdownTile(
-                    icon: Icons.language,
-                    title: "Language",
-                    value: selectedLanguage,
-                    items: ["English", "Spanish", "French"],
-                    onChanged: (val) {
-                      if (val != null) setState(() => selectedLanguage = val);
-                    },
-                  ),
-                  _buildDivider(),
-                  SwitchListTile(
-                    secondary: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: app_colors.WoofCareColors.primaryBackground
-                            .withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(8),
+                    const SizedBox(height: 24),
+                    _buildSectionHeader("Preferences"),
+                    _buildSectionCard([
+                      _buildDropdownTile(
+                        icon: Icons.language,
+                        title: "Language",
+                        value: selectedLanguage,
+                        items: ["English", "Spanish", "French"],
+                        onChanged: (val) {
+                          if (val != null) {
+                            setState(() => selectedLanguage = val);
+                          }
+                        },
                       ),
-                      child: const Icon(
-                        Icons.notifications_outlined,
-                        color: app_colors.WoofCareColors.primaryTextAndIcons,
+                      _buildDivider(),
+                      SwitchListTile(
+                        secondary: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: app_colors.WoofCareColors.primaryBackground
+                                .withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(
+                            Icons.notifications_outlined,
+                            color:
+                                app_colors.WoofCareColors.primaryTextAndIcons,
+                          ),
+                        ),
+                        title: const Text(
+                          "Notifications",
+                          style: TextStyle(
+                            color:
+                                app_colors.WoofCareColors.primaryTextAndIcons,
+                            fontWeight: FontWeight.w500,
+                            fontSize: 16,
+                          ),
+                        ),
+                        value: true,
+                        activeThumbColor: app_colors.WoofCareColors.buttonColor,
+                        onChanged: (val) {},
+                      ),
+                    ]),
+
+                    const SizedBox(height: 24),
+                    _buildSectionHeader("Privacy & Security"),
+                    _buildSectionCard([
+                      _buildDropdownTile(
+                        icon: Icons.location_on_outlined,
+                        title: "Location Sharing",
+                        value: "While Using",
+                        items: ["Always", "While Using", "Never"],
+                        onChanged: (val) {},
+                      ),
+                      _buildDivider(),
+                      _buildDropdownTile(
+                        icon: Icons.visibility_outlined,
+                        title: "Profile Sharing",
+                        value: selectedProfileViewing,
+                        items: ["On", "Off"],
+                        onChanged: (val) async {
+                          if (val == null) return;
+                          final shareProfile = val == "On";
+                          setState(() => selectedProfileViewing = val);
+                          profile.shareProfile = shareProfile;
+                          await profile.reference.update({
+                            "shareProfile": shareProfile,
+                          });
+                        },
+                      ),
+                    ]),
+
+                    const SizedBox(height: 24),
+                    _buildSectionHeader("Support"),
+                    _buildSectionCard([
+                      _buildLinkTile(Icons.info_outline, "About Us", () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const HomePage()),
+                        );
+                      }),
+                      _buildDivider(),
+                      _buildLinkTile(
+                        Icons.privacy_tip_outlined,
+                        "Privacy Policy",
+                        () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const HomePage()),
+                          );
+                        },
+                      ),
+                      _buildDivider(),
+                      _buildLinkTile(
+                        Icons.description_outlined,
+                        "Terms & Conditions",
+                        () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const HomePage()),
+                          );
+                        },
+                      ),
+                    ]),
+
+                    const SizedBox(height: 32),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () async {
+                          await Auth.logOut(context);
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: web
+                              ? WoofCareWebDesign.danger
+                              : const Color(0xFFFF926C),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(web ? 8 : 16),
+                          ),
+                          elevation: 2,
+                        ),
+                        child: const Text(
+                          "Log Out",
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
                     ),
-                    title: const Text(
-                      "Notifications",
-                      style: TextStyle(
-                        color: app_colors.WoofCareColors.primaryTextAndIcons,
-                        fontWeight: FontWeight.w500,
-                        fontSize: 16,
-                      ),
-                    ),
-                    value: true,
-                    activeThumbColor: app_colors.WoofCareColors.buttonColor,
-                    onChanged: (val) {},
-                  ),
-                ]),
-
-                const SizedBox(height: 24),
-                _buildSectionHeader("Privacy & Security"),
-                _buildSectionCard([
-                  _buildDropdownTile(
-                    icon: Icons.location_on_outlined,
-                    title: "Location Sharing",
-                    value: "While Using",
-                    items: ["Always", "While Using", "Never"],
-                    onChanged: (val) {},
-                  ),
-                  _buildDivider(),
-                  _buildDropdownTile(
-                    icon: Icons.visibility_outlined,
-                    title: "Profile Sharing",
-                    value: selectedProfileViewing,
-                    items: ["On", "Off"],
-                    onChanged: (val) async {
-                      if (val == null) return;
-                      final shareProfile = val == "On";
-                      setState(() => selectedProfileViewing = val);
-                      profile.shareProfile = shareProfile;
-                      await profile.reference.update({
-                        "shareProfile": shareProfile,
-                      });
-                    },
-                  ),
-                ]),
-
-                const SizedBox(height: 24),
-                _buildSectionHeader("Support"),
-                _buildSectionCard([
-                  _buildLinkTile(Icons.info_outline, "About Us", () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const HomePage()),
-                    );
-                  }),
-                  _buildDivider(),
-                  _buildLinkTile(
-                    Icons.privacy_tip_outlined,
-                    "Privacy Policy",
-                    () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const HomePage()),
-                      );
-                    },
-                  ),
-                  _buildDivider(),
-                  _buildLinkTile(
-                    Icons.description_outlined,
-                    "Terms & Conditions",
-                    () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const HomePage()),
-                      );
-                    },
-                  ),
-                ]),
-
-                const SizedBox(height: 32),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      Auth.logOut(context);
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(builder: (_) => const LogInPage()),
-                      );
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFFF926C),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      elevation: 2,
-                    ),
-                    child: const Text(
-                      "Log Out",
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
+                    const SizedBox(height: 40),
+                  ],
                 ),
-                const SizedBox(height: 40),
-              ],
+              ),
             ),
           ),
         ],
@@ -253,32 +276,39 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Widget _buildSectionHeader(String title) {
+    final web = WoofCareWebDesign.enabled;
     return Padding(
       padding: const EdgeInsets.only(left: 8, bottom: 8),
       child: Text(
         title,
-        style: const TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.bold,
-          color: app_colors.WoofCareColors.dividerColor,
-          letterSpacing: 1.0,
+        style: TextStyle(
+          fontSize: web ? 12 : 14,
+          fontWeight: FontWeight.w700,
+          color: web
+              ? WoofCareWebDesign.textMuted
+              : app_colors.WoofCareColors.dividerColor,
+          letterSpacing: web ? 0.7 : 1,
         ),
       ),
     );
   }
 
   Widget _buildSectionCard(List<Widget> children) {
+    final web = WoofCareWebDesign.enabled;
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        color: WoofCareWebDesign.surface,
+        borderRadius: BorderRadius.circular(web ? 10 : 16),
+        border: web ? Border.all(color: WoofCareWebDesign.border) : null,
+        boxShadow: web
+            ? null
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
       ),
       child: Column(children: children),
     );
@@ -299,28 +329,35 @@ class _SettingsPageState extends State<SettingsPage> {
     required String title,
     required List<Widget> children,
   }) {
+    final web = WoofCareWebDesign.enabled;
     return Theme(
       data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
       child: ExpansionTile(
         leading: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: app_colors.WoofCareColors.primaryBackground.withValues(
-              alpha: 0.2,
-            ),
+            color: web
+                ? WoofCareWebDesign.primary.withValues(alpha: 0.08)
+                : app_colors.WoofCareColors.primaryBackground.withValues(
+                    alpha: 0.2,
+                  ),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(
             icon,
-            color: app_colors.WoofCareColors.primaryTextAndIcons,
+            color: web
+                ? WoofCareWebDesign.primary
+                : app_colors.WoofCareColors.primaryTextAndIcons,
           ),
         ),
         title: Text(
           title,
-          style: const TextStyle(
-            color: app_colors.WoofCareColors.primaryTextAndIcons,
+          style: TextStyle(
+            color: web
+                ? WoofCareWebDesign.text
+                : app_colors.WoofCareColors.primaryTextAndIcons,
             fontWeight: FontWeight.w500,
-            fontSize: 16,
+            fontSize: web ? 14 : 16,
           ),
         ),
         iconColor: app_colors.WoofCareColors.primaryTextAndIcons,
@@ -338,23 +375,33 @@ class _SettingsPageState extends State<SettingsPage> {
     required List<String> items,
     required Function(String?) onChanged,
   }) {
+    final web = WoofCareWebDesign.enabled;
     return ListTile(
       leading: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: app_colors.WoofCareColors.primaryBackground.withValues(
-            alpha: 0.2,
-          ),
+          color: web
+              ? WoofCareWebDesign.primary.withValues(alpha: 0.08)
+              : app_colors.WoofCareColors.primaryBackground.withValues(
+                  alpha: 0.2,
+                ),
           borderRadius: BorderRadius.circular(8),
         ),
-        child: Icon(icon, color: app_colors.WoofCareColors.primaryTextAndIcons),
+        child: Icon(
+          icon,
+          color: web
+              ? WoofCareWebDesign.primary
+              : app_colors.WoofCareColors.primaryTextAndIcons,
+        ),
       ),
       title: Text(
         title,
-        style: const TextStyle(
-          color: app_colors.WoofCareColors.primaryTextAndIcons,
+        style: TextStyle(
+          color: web
+              ? WoofCareWebDesign.text
+              : app_colors.WoofCareColors.primaryTextAndIcons,
           fontWeight: FontWeight.w500,
-          fontSize: 16,
+          fontSize: web ? 14 : 16,
         ),
       ),
       trailing: DropdownButtonHideUnderline(
@@ -369,10 +416,9 @@ class _SettingsPageState extends State<SettingsPage> {
             fontSize: 14,
             fontWeight: FontWeight.w500,
           ),
-          items:
-              items
-                  .map((e) => DropdownMenuItem(value: e, child: Text(e)))
-                  .toList(),
+          items: items
+              .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+              .toList(),
           onChanged: onChanged,
         ),
       ),
@@ -380,24 +426,34 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Widget _buildLinkTile(IconData icon, String title, VoidCallback onTap) {
+    final web = WoofCareWebDesign.enabled;
     return ListTile(
       onTap: onTap,
       leading: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: app_colors.WoofCareColors.primaryBackground.withValues(
-            alpha: 0.2,
-          ),
+          color: web
+              ? WoofCareWebDesign.primary.withValues(alpha: 0.08)
+              : app_colors.WoofCareColors.primaryBackground.withValues(
+                  alpha: 0.2,
+                ),
           borderRadius: BorderRadius.circular(8),
         ),
-        child: Icon(icon, color: app_colors.WoofCareColors.primaryTextAndIcons),
+        child: Icon(
+          icon,
+          color: web
+              ? WoofCareWebDesign.primary
+              : app_colors.WoofCareColors.primaryTextAndIcons,
+        ),
       ),
       title: Text(
         title,
-        style: const TextStyle(
-          color: app_colors.WoofCareColors.primaryTextAndIcons,
+        style: TextStyle(
+          color: web
+              ? WoofCareWebDesign.text
+              : app_colors.WoofCareColors.primaryTextAndIcons,
           fontWeight: FontWeight.w500,
-          fontSize: 16,
+          fontSize: web ? 14 : 16,
         ),
       ),
       trailing: const Icon(

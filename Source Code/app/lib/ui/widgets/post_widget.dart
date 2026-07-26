@@ -4,6 +4,7 @@ import 'package:video_player/video_player.dart';
 import 'package:woofcare/config/colors.dart';
 import 'package:woofcare/config/constants.dart';
 import 'package:woofcare/ui/widgets/thumbs_up_widget.dart';
+import 'package:woofcare/ui/widgets/web_design_system.dart';
 
 class Post extends StatelessWidget {
   final String message;
@@ -29,40 +30,53 @@ class Post extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final web = WoofCareWebDesign.enabled;
+
     return Material(
       color: Colors.transparent,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 14),
+        margin: EdgeInsets.only(bottom: web ? 12 : 14),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(18),
-          color: WoofCareColors.offWhite,
+          borderRadius: BorderRadius.circular(web ? 12 : 18),
+          color: web ? WoofCareWebDesign.surface : WoofCareColors.offWhite,
           border: Border.all(
-            color: WoofCareColors.primaryTextAndIcons.withValues(alpha: 0.08),
+            color: web
+                ? WoofCareWebDesign.border
+                : WoofCareColors.primaryTextAndIcons.withValues(alpha: 0.08),
           ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.08),
-              blurRadius: 18,
-              offset: const Offset(0, 8),
-            ),
-          ],
+          boxShadow: web
+              ? WoofCareWebDesign.cardShadow
+              : [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.08),
+                    blurRadius: 18,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(web ? 12 : 18),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _PostHeader(user: user, time: time),
               if (message.trim().isNotEmpty)
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(18, 4, 18, 18),
+                  padding: EdgeInsets.fromLTRB(
+                    web ? 20 : 18,
+                    4,
+                    web ? 20 : 18,
+                    web ? 16 : 18,
+                  ),
                   child: Text(
                     message,
-                    style: const TextStyle(
-                      color: WoofCareColors.primaryTextAndIcons,
-                      fontSize: 17,
-                      height: 1.4,
-                      fontWeight: FontWeight.w500,
+                    style: TextStyle(
+                      color: web
+                          ? WoofCareWebDesign.text
+                          : WoofCareColors.primaryTextAndIcons,
+                      fontSize: web ? 15 : 17,
+                      height: 1.5,
+                      fontWeight: web ? FontWeight.w400 : FontWeight.w500,
                     ),
                   ),
                 )
@@ -85,9 +99,11 @@ class Post extends StatelessWidget {
                 ),
               Container(
                 height: 1,
-                color: WoofCareColors.primaryTextAndIcons.withValues(
-                  alpha: 0.08,
-                ),
+                color: web
+                    ? WoofCareWebDesign.border
+                    : WoofCareColors.primaryTextAndIcons.withValues(
+                        alpha: 0.08,
+                      ),
               ),
               _PostActions(postId: postId, usersWhoLiked: usersWhoLiked),
             ],
@@ -113,8 +129,8 @@ class _PostImages extends StatelessWidget {
           child: Image.network(
             images.first,
             fit: BoxFit.cover,
-            errorBuilder:
-                (context, error, stackTrace) => const _MediaErrorPlaceholder(),
+            errorBuilder: (context, error, stackTrace) =>
+                const _MediaErrorPlaceholder(),
           ),
         ),
       );
@@ -134,13 +150,11 @@ class _PostImages extends StatelessWidget {
               width: 140,
               height: 140,
               fit: BoxFit.cover,
-              errorBuilder:
-                  (context, error, stackTrace) =>
-                      const SizedBox(
-                        width: 140,
-                        height: 140,
-                        child: _MediaErrorPlaceholder(),
-                      ),
+              errorBuilder: (context, error, stackTrace) => const SizedBox(
+                width: 140,
+                height: 140,
+                child: _MediaErrorPlaceholder(),
+              ),
             ),
           );
         },
@@ -324,33 +338,51 @@ class _PostHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final web = WoofCareWebDesign.enabled;
+
     return Padding(
-      padding: const EdgeInsets.fromLTRB(18, 18, 18, 12),
+      padding: EdgeInsets.fromLTRB(
+        web ? 20 : 18,
+        web ? 16 : 18,
+        web ? 20 : 18,
+        web ? 10 : 12,
+      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Container(
-            width: 48,
-            height: 48,
+            width: web ? 40 : 48,
+            height: web ? 40 : 48,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: WoofCareColors.backgroundElementColor,
-              border: Border.all(color: WoofCareColors.offWhite, width: 3),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.08),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
+              color: web
+                  ? WoofCareWebDesign.primary.withValues(alpha: 0.1)
+                  : WoofCareColors.backgroundElementColor,
+              border: Border.all(
+                color: web
+                    ? WoofCareWebDesign.primary.withValues(alpha: 0.14)
+                    : WoofCareColors.offWhite,
+                width: web ? 1 : 3,
+              ),
+              boxShadow: web
+                  ? null
+                  : [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.08),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
             ),
             alignment: Alignment.center,
             child: Text(
               _initialsFor(user),
-              style: const TextStyle(
-                color: WoofCareColors.primaryTextAndIcons,
-                fontSize: 17,
-                fontWeight: FontWeight.w900,
+              style: TextStyle(
+                color: web
+                    ? WoofCareWebDesign.primary
+                    : WoofCareColors.primaryTextAndIcons,
+                fontSize: web ? 14 : 17,
+                fontWeight: web ? FontWeight.w700 : FontWeight.w900,
               ),
             ),
           ),
@@ -363,10 +395,12 @@ class _PostHeader extends StatelessWidget {
                   _displayNameFor(user),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: WoofCareColors.primaryTextAndIcons,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w800,
+                  style: TextStyle(
+                    color: web
+                        ? WoofCareWebDesign.text
+                        : WoofCareColors.primaryTextAndIcons,
+                    fontSize: web ? 14 : 17,
+                    fontWeight: web ? FontWeight.w600 : FontWeight.w800,
                   ),
                 ),
                 const SizedBox(height: 3),
@@ -375,9 +409,11 @@ class _PostHeader extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: WoofCareColors.primaryTextAndIcons.withValues(
-                      alpha: 0.58,
-                    ),
+                    color: web
+                        ? WoofCareWebDesign.textMuted
+                        : WoofCareColors.primaryTextAndIcons.withValues(
+                            alpha: 0.58,
+                          ),
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
                   ),
@@ -385,21 +421,24 @@ class _PostHeader extends StatelessWidget {
               ],
             ),
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
-            decoration: BoxDecoration(
-              color: WoofCareColors.floatingActionIcons.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: const Text(
-              'Community',
-              style: TextStyle(
-                color: WoofCareColors.floatingActionIcons,
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
+          if (!web)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+              decoration: BoxDecoration(
+                color: WoofCareColors.floatingActionIcons.withValues(
+                  alpha: 0.12,
+                ),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: const Text(
+                'Community',
+                style: TextStyle(
+                  color: WoofCareColors.floatingActionIcons,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
             ),
-          ),
         ],
       ),
     );

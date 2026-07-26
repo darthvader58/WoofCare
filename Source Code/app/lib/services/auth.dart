@@ -103,8 +103,7 @@ class Auth {
         error(
           FirebaseAuthException(
             code: "wrong-account-type",
-            message:
-                expectedAccountType == "organization"
+            message: expectedAccountType == "organization"
                     ? "This account is registered as an individual."
                     : "This account is registered as an organization.",
           ),
@@ -127,10 +126,11 @@ class Auth {
   }
 
   static Future<void> logOut(BuildContext context) async {
+    await NotificationService.unregisterCurrentUser();
     await AUTH.signOut();
 
     if (context.mounted) {
-      Navigator.pushNamed(context, "/login");
+      Navigator.pushNamedAndRemoveUntil(context, "/login", (route) => false);
     }
   }
 

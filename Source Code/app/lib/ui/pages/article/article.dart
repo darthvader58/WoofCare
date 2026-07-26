@@ -6,6 +6,8 @@ import 'package:woofcare/models/article.dart';
 import 'package:woofcare/services/articles.dart';
 import 'package:woofcare/ui/widgets/app_chrome.dart';
 import 'package:woofcare/ui/widgets/article_card.dart';
+import 'package:woofcare/ui/widgets/responsive.dart';
+import 'package:woofcare/ui/widgets/web_design_system.dart';
 
 /// ArticlePage - Main screen that displays all articles from Firebase.
 /// Features: Search, category filtering, and real-time updates from database.
@@ -54,7 +56,9 @@ class _ArticlePageState extends State<ArticlePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: WoofCareColors.primaryBackground,
+      backgroundColor: WoofCareWebDesign.enabled
+          ? WoofCareWebDesign.canvas
+          : WoofCareColors.primaryBackground,
       body: Stack(
         children: [
           SafeArea(
@@ -91,10 +95,14 @@ class _ArticlePageState extends State<ArticlePage> {
                   ),
                 ),
                 Expanded(
-                  child:
-                      searchResults != null
-                          ? _buildSearchResults()
-                          : _buildArticlesList(),
+                  child: WoofCareContentSurface(
+                    maxWidth: WoofCareWebDesign.enabled
+                        ? WoofCareWebDesign.pageMaxWidth
+                        : 1120,
+                    child: searchResults != null
+                        ? _buildSearchResults()
+                        : _buildArticlesList(),
+                  ),
                 ),
               ],
             ),
@@ -126,12 +134,27 @@ class _ArticlePageState extends State<ArticlePage> {
       stream: _articleService.getArticlesByCategory(selectedCategory),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
+          if (WoofCareWebDesign.enabled) {
+            return const WoofCareBackendState(
+              status: WoofCareBackendStatus.connecting,
+              collectionLabel: 'articles',
+            );
+          }
+
           return Center(
             child: CircularProgressIndicator(color: WoofCareColors.buttonColor),
           );
         }
 
         if (snapshot.hasError) {
+          if (WoofCareWebDesign.enabled) {
+            return WoofCareBackendState(
+              status: WoofCareBackendStatus.failed,
+              collectionLabel: 'articles',
+              error: snapshot.error,
+            );
+          }
+
           return Center(
             child: Text(
               'Error loading articles',
@@ -141,6 +164,13 @@ class _ArticlePageState extends State<ArticlePage> {
         }
 
         if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          if (WoofCareWebDesign.enabled) {
+            return const WoofCareBackendState(
+              status: WoofCareBackendStatus.connectedEmpty,
+              collectionLabel: 'articles',
+            );
+          }
+
           return const WoofCareEmptyState(
             icon: Icons.menu_book_outlined,
             title: 'No articles found',
@@ -148,26 +178,7 @@ class _ArticlePageState extends State<ArticlePage> {
           );
         }
 
-        final articles = snapshot.data!;
-        return ListView.builder(
-          physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(11, 24, 11, 124),
-          itemCount: articles.length,
-          itemBuilder: (context, index) {
-            final article = articles[index];
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 16),
-              child: ArticleCard(
-                category: article.category,
-                title: article.title,
-                author: article.author,
-                date: DateFormat('MMM yyyy').format(article.date),
-                imageUrl: article.imageUrl,
-                onTap: () => _openArticle(article),
-              ),
-            );
-          },
-        );
+        return _buildArticleCollection(snapshot.data!);
       },
     );
   }
@@ -182,22 +193,63 @@ class _ArticlePageState extends State<ArticlePage> {
       );
     }
 
-    return ListView.separated(
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(11, 24, 11, 124),
-      itemCount: searchResults!.length,
-      separatorBuilder: (context, index) => const SizedBox(height: 16),
-      itemBuilder: (context, index) {
-        final article = searchResults![index];
-        return ArticleCard(
-          category: article.category,
-          title: article.title,
-          author: article.author,
-          date: DateFormat('MMM yyyy').format(article.date),
-          imageUrl: article.imageUrl,
-          onTap: () => _openArticle(article),
+    return _buildArticleCollection(searchResults!);
+  }
+
+  Widget _buildArticleCollection(List<Article> articles) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final useGrid = constraints.maxWidth >= 820;
+        final horizontalPadding = WoofCareWebDesign.enabled
+            ? 32.0
+            : useGrid
+            ? 24.0
+            : 11.0;
+
+        if (useGrid) {
+          return GridView.builder(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: EdgeInsets.fromLTRB(
+              horizontalPadding,
+              WoofCareWebDesign.enabled ? 28 : 24,
+              horizontalPadding,
+              124,
+            ),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              crossAxisSpacing: 20,
+              mainAxisSpacing: 20,
+              mainAxisExtent: 193,
+            ),
+            itemCount: articles.length,
+            itemBuilder: (context, index) => _buildArticleCard(articles[index]),
+          );
+        }
+
+        return ListView.separated(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: EdgeInsets.fromLTRB(
+            horizontalPadding,
+            24,
+            horizontalPadding,
+            124,
+          ),
+          itemCount: articles.length,
+          separatorBuilder: (context, index) => const SizedBox(height: 16),
+          itemBuilder: (context, index) => _buildArticleCard(articles[index]),
         );
       },
+    );
+  }
+
+  Widget _buildArticleCard(Article article) {
+    return ArticleCard(
+      category: article.category,
+      title: article.title,
+      author: article.author,
+      date: DateFormat('MMM yyyy').format(article.date),
+      imageUrl: article.imageUrl,
+      onTap: () => _openArticle(article),
     );
   }
 

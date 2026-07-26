@@ -1,0 +1,71 @@
+name: Validate Firebase security
+
+on:
+  pull_request:
+    paths:
+      - "Source Code/app/firebase.json"
+      - "Source Code/app/firestore.rules"
+      - "Source Code/app/storage.rules"
+      - "Source Code/app/test/**"
+      - "Source Code/app/functions/**"
+      - "Source Code/app/package.json"
+      - "Source Code/app/package-lock.json"
+      - ".github/workflows/firebase-security.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "Source Code/app/firebase.json"
+      - "Source Code/app/firestore.rules"
+      - "Source Code/app/storage.rules"
+      - "Source Code/app/test/**"
+      - "Source Code/app/functions/**"
+      - "Source Code/app/package.json"
+      - "Source Code/app/package-lock.json"
+      - ".github/workflows/firebase-security.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: woofcare-firebase-security-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: "Source Code/app"
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: |
+            Source Code/app/package-lock.json
+            Source Code/app/functions/package-lock.json
+
+      - name: Set up Java for Firebase emulators
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Install Firebase rules test dependencies
+        run: npm ci
+
+      - name: Install Functions test dependencies
+        run: npm ci
+        working-directory: "Source Code/app/functions"
+
+      - name: Test Firebase Functions helpers
+        run: npm test
+        working-directory: "Source Code/app/functions"
+
+      - name: Test Firestore and Storage security rules
+        run: npm run test:rules

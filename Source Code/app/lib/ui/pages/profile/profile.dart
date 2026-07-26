@@ -5,6 +5,8 @@ import 'package:woofcare/ui/pages/settings/settings.dart';
 import 'package:woofcare/ui/widgets/contact_info.dart';
 import 'package:woofcare/ui/widgets/custom_button.dart';
 import 'package:woofcare/ui/widgets/editable_profilepic.dart';
+import 'package:woofcare/ui/widgets/responsive.dart';
+import 'package:woofcare/ui/widgets/web_design_system.dart';
 
 import '/config/colors.dart';
 import '/config/constants.dart';
@@ -81,11 +83,10 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Future<void> _openChat(BuildContext context) async {
     try {
-      QuerySnapshot snapshot =
-          await FIRESTORE
-              .collection('conversations')
-              .where("participantIds", arrayContains: profile.id)
-              .get();
+      QuerySnapshot snapshot = await FIRESTORE
+          .collection('conversations')
+          .where("participantIds", arrayContains: profile.id)
+          .get();
 
       var conversations = snapshot.docs.where((doc) {
         final data = doc.data() as Map<String, dynamic>? ?? {};
@@ -125,227 +126,247 @@ class _ProfilePageState extends State<ProfilePage> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => const FollowBottomSheet(),
+      builder: (context) =>
+          const WoofCareSheetSurface(maxWidth: 720, child: FollowBottomSheet()),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final web = WoofCareWebDesign.enabled;
+
     if (isLoading) {
-      return const Scaffold(
-        backgroundColor: WoofCareColors.primaryBackground,
-        body: Center(child: CircularProgressIndicator()),
+      return Scaffold(
+        backgroundColor: web
+            ? WoofCareWebDesign.canvas
+            : WoofCareColors.primaryBackground,
+        body: const Center(child: CircularProgressIndicator()),
       );
     }
 
     return Scaffold(
       resizeToAvoidBottomInset: true,
-      backgroundColor: WoofCareColors.primaryBackground,
+      backgroundColor: web
+          ? WoofCareWebDesign.canvas
+          : WoofCareColors.primaryBackground,
       appBar: AppBar(
-        backgroundColor: WoofCareColors.primaryBackground,
-        foregroundColor: WoofCareColors.primaryTextAndIcons,
-        actions:
-            isCurrentUser
-                ? [
-                  IconButton(
-                    icon: Icon(
-                      _editMode ? Icons.create_rounded : Icons.create_outlined,
-                      color:
-                          _editMode
-                              ? WoofCareColors.buttonColor
-                              : WoofCareColors.primaryTextAndIcons,
-                    ),
-                    tooltip: "Toggle Edit Mode",
-                    onPressed: () {
-                      setState(() {
-                        _editMode = !_editMode;
-                      });
-                    },
+        backgroundColor: web
+            ? WoofCareWebDesign.surface
+            : WoofCareColors.primaryBackground,
+        foregroundColor: web
+            ? WoofCareWebDesign.text
+            : WoofCareColors.primaryTextAndIcons,
+        shape: web
+            ? const Border(bottom: BorderSide(color: WoofCareWebDesign.border))
+            : null,
+        actions: isCurrentUser
+            ? [
+                IconButton(
+                  icon: Icon(
+                    _editMode ? Icons.create_rounded : Icons.create_outlined,
+                    color: _editMode
+                        ? WoofCareColors.buttonColor
+                        : WoofCareColors.primaryTextAndIcons,
                   ),
-                  IconButton(
-                    icon: Icon(
-                      Icons.settings,
-                      color: WoofCareColors.primaryTextAndIcons,
-                    ),
-                    tooltip: "Settings",
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const SettingsPage(),
-                        ),
-                      );
-                    },
+                  tooltip: "Toggle Edit Mode",
+                  onPressed: () {
+                    setState(() {
+                      _editMode = !_editMode;
+                    });
+                  },
+                ),
+                IconButton(
+                  icon: Icon(
+                    Icons.settings,
+                    color: WoofCareColors.primaryTextAndIcons,
                   ),
-                ]
-                : [],
+                  tooltip: "Settings",
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const SettingsPage(),
+                      ),
+                    );
+                  },
+                ),
+              ]
+            : [],
       ),
       //Header
-      body: GestureDetector(
-        onTap: () {
-          FocusScope.of(context).unfocus(); // Dismiss keyboard on tap outside
-        },
-        child: Column(
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.start,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(width: 20), // Spacer on the left
-                // Profile Picture
-                EditableProfilePicture(
-                  isEditMode: _editMode && isCurrentUser,
-                  image: profileImage,
-                ),
+      body: WoofCareContentSurface(
+        maxWidth: web ? 1100 : 980,
+        child: GestureDetector(
+          onTap: () {
+            FocusScope.of(context).unfocus(); // Dismiss keyboard on tap outside
+          },
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(width: 20), // Spacer on the left
+                  // Profile Picture
+                  EditableProfilePicture(
+                    isEditMode: _editMode && isCurrentUser,
+                    image: profileImage,
+                  ),
 
-                //spacer between picture and text
-                const SizedBox(width: 5),
+                  //spacer between picture and text
+                  const SizedBox(width: 5),
 
-                //profile information
-                Expanded(
-                  child: SafeArea(
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Center(
-                        child: Column(
-                          mainAxisSize:
-                              MainAxisSize
-                                  .min, // This will minimize the space needed
-                          mainAxisAlignment: MainAxisAlignment.start,
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            // Username
-                            SizedBox(
-                              width: 300,
-                              child: Text(
-                                name,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontFamily: "Roboto",
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 24,
-                                  color: WoofCareColors.primaryTextAndIcons,
-                                ),
-                              ),
-                            ),
-
-                            // Role
-                            SizedBox(
-                              width: 300,
-                              child: Text(
-                                role,
-                                textAlign: TextAlign.left,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontFamily: "Roboto",
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 16,
-                                  color: WoofCareColors.primaryTextAndIcons,
-                                ),
-                              ),
-                            ),
-
-                            const SizedBox(height: 5),
-
-                            //location
-                            const SizedBox(
-                              width: 300,
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    Icons.location_on_outlined,
-                                    size: 24,
-                                    color: Color(0xFF805832),
+                  //profile information
+                  Expanded(
+                    child: SafeArea(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.all(8.0),
+                        child: Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize
+                                .min, // This will minimize the space needed
+                            mainAxisAlignment: MainAxisAlignment.start,
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              // Username
+                              SizedBox(
+                                width: double.infinity,
+                                child: Text(
+                                  name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontFamily: "Roboto",
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 24,
+                                    color: WoofCareColors.primaryTextAndIcons,
                                   ),
-                                  SizedBox(width: 3),
-                                  Text(
-                                    //TODO: connect location to database + allow privacy
-                                    "Location",
-                                    textAlign: TextAlign.left,
-                                    style: TextStyle(
-                                      fontFamily: "Abeezee",
-                                      fontSize: 14,
+                                ),
+                              ),
+
+                              // Role
+                              SizedBox(
+                                width: double.infinity,
+                                child: Text(
+                                  role,
+                                  textAlign: TextAlign.left,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontFamily: "Roboto",
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 16,
+                                    color: WoofCareColors.primaryTextAndIcons,
+                                  ),
+                                ),
+                              ),
+
+                              const SizedBox(height: 5),
+
+                              //location
+                              const SizedBox(
+                                width: double.infinity,
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.location_on_outlined,
+                                      size: 24,
                                       color: Color(0xFF805832),
                                     ),
-                                  ),
-                                ],
+                                    SizedBox(width: 3),
+                                    Text(
+                                      //TODO: connect location to database + allow privacy
+                                      "Location",
+                                      textAlign: TextAlign.left,
+                                      style: TextStyle(
+                                        fontFamily: "Abeezee",
+                                        fontSize: 14,
+                                        color: Color(0xFF805832),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ),
 
-                            const SizedBox(height: 5),
+                              const SizedBox(height: 5),
 
-                            ContactInfoSection(
-                              isEditMode: _editMode && isCurrentUser,
-                              email: email,
-                              phone: phone,
-                            ),
-                          ],
+                              ContactInfoSection(
+                                isEditMode: _editMode && isCurrentUser,
+                                email: email,
+                                phone: phone,
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 20), // Spacer on the right
-              ],
-            ),
-
-            // Spacer
-            const SizedBox(height: 20),
-
-            // Button Row
-            if (!isCurrentUser)
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.only(left: 0, right: 0),
-                    child: CustomButton(
-                      height: 60,
-                      width: 200,
-                      color: WoofCareColors.backgroundElementColor,
-                      fontColor: WoofCareColors.primaryTextAndIcons,
-                      fontSize: 14,
-                      borderRadius: 16,
-                      text: "Message",
-                      onTap: () => _openChat(context),
-                    ),
-                  ),
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.only(right: 10, left: 0),
-                      child: CustomButton(
-                        height: 60,
-                        color: WoofCareColors.buttonColor,
-                        borderRadius: 16,
-                        text: "Follow",
-                        fontSize: 14,
-                        onTap: () {
-                          _showFollowBottomSheet(context);
-                        },
-                      ),
-                    ),
-                  ),
+                  const SizedBox(width: 20), // Spacer on the right
                 ],
               ),
 
-            // Spacer
-            const SizedBox(height: 20),
+              // Spacer
+              const SizedBox(height: 20),
 
-            // AboutInformation
-            Expanded(
-              child: Container(
-                decoration: BoxDecoration(
-                  color: WoofCareColors.offWhite,
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(30),
-                    topRight: Radius.circular(30),
-                  ),
-                ),
-                child: Column(
+              // Button Row
+              if (!isCurrentUser)
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
-                    /*
+                    Padding(
+                      padding: const EdgeInsets.only(left: 0, right: 0),
+                      child: CustomButton(
+                        height: 60,
+                        width: 200,
+                        color: WoofCareColors.backgroundElementColor,
+                        fontColor: WoofCareColors.primaryTextAndIcons,
+                        fontSize: 14,
+                        borderRadius: 16,
+                        text: "Message",
+                        onTap: () => _openChat(context),
+                      ),
+                    ),
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.only(right: 10, left: 0),
+                        child: CustomButton(
+                          height: 60,
+                          color: WoofCareColors.buttonColor,
+                          borderRadius: 16,
+                          text: "Follow",
+                          fontSize: 14,
+                          onTap: () {
+                            _showFollowBottomSheet(context);
+                          },
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+
+              // Spacer
+              const SizedBox(height: 20),
+
+              // AboutInformation
+              Expanded(
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: web
+                        ? WoofCareWebDesign.surface
+                        : WoofCareColors.offWhite,
+                    borderRadius: web
+                        ? BorderRadius.circular(12)
+                        : const BorderRadius.only(
+                            topLeft: Radius.circular(30),
+                            topRight: Radius.circular(30),
+                          ),
+                    border: web
+                        ? Border.all(color: WoofCareWebDesign.border)
+                        : null,
+                  ),
+                  child: Column(
+                    children: [
+                      /*
                     // Row of two buttons
                     Padding(
                       padding: const EdgeInsets.all(8.0),
@@ -399,7 +420,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     ),
                     */
 
-                    /*
+                      /*
                     //Stats
                     //TODO: connect stats to database
                     if (!_editMode) //Hide stats in edit mod
@@ -437,53 +458,55 @@ class _ProfilePageState extends State<ProfilePage> {
                       ),
                     */
 
-                    // Spacer
-                    if (!_editMode) const SizedBox(height: 10),
+                      // Spacer
+                      if (!_editMode) const SizedBox(height: 10),
 
-                    // Biography Section
-                    Text(
-                      'About:',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: WoofCareColors.primaryTextAndIcons,
+                      // Biography Section
+                      Text(
+                        'About:',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: WoofCareColors.primaryTextAndIcons,
+                        ),
                       ),
-                    ),
 
-                    // Biography box
-                    Container(
-                      width: double.infinity,
-                      margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      padding: EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: WoofCareColors.offWhite,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child:
-                          isCurrentUser && _editMode
-                              ? Column(
+                      // Biography box
+                      Container(
+                        width: double.infinity,
+                        margin: EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        padding: EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: WoofCareColors.offWhite,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: isCurrentUser && _editMode
+                            ? Column(
                                 crossAxisAlignment: CrossAxisAlignment.end,
                                 children: [
                                   TextField(
                                     controller: _bioTextController,
                                     maxLines: 5,
                                     maxLength: 500,
-                                    buildCounter: (
-                                      BuildContext context, {
-                                      required int currentLength,
-                                      required bool isFocused,
-                                      required int? maxLength,
-                                    }) {
-                                      return Text(
-                                        '$currentLength / $maxLength',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color:
-                                              WoofCareColors
+                                    buildCounter:
+                                        (
+                                          BuildContext context, {
+                                          required int currentLength,
+                                          required bool isFocused,
+                                          required int? maxLength,
+                                        }) {
+                                          return Text(
+                                            '$currentLength / $maxLength',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: WoofCareColors
                                                   .primaryTextAndIcons,
-                                        ),
-                                      );
-                                    },
+                                            ),
+                                          );
+                                        },
 
                                     style: TextStyle(
                                       fontSize: 12,
@@ -496,9 +519,8 @@ class _ProfilePageState extends State<ProfilePage> {
                                           Radius.circular(12),
                                         ),
                                         borderSide: BorderSide(
-                                          color:
-                                              WoofCareColors
-                                                  .backgroundElementColor,
+                                          color: WoofCareColors
+                                              .backgroundElementColor,
                                         ),
                                       ),
                                       focusedBorder: OutlineInputBorder(
@@ -506,9 +528,8 @@ class _ProfilePageState extends State<ProfilePage> {
                                           Radius.circular(12),
                                         ),
                                         borderSide: BorderSide(
-                                          color:
-                                              WoofCareColors
-                                                  .backgroundElementColor,
+                                          color: WoofCareColors
+                                              .backgroundElementColor,
                                         ),
                                       ),
                                       hintText: 'Enter your biography...',
@@ -534,7 +555,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                   ), //TODO: add save functionality
                                 ],
                               )
-                              : Text(
+                            : Text(
                                 bio.isEmpty ? 'No biography available.' : bio,
                                 maxLines: 5,
                                 textAlign: TextAlign.start,
@@ -543,25 +564,177 @@ class _ProfilePageState extends State<ProfilePage> {
                                   color: WoofCareColors.primaryTextAndIcons,
                                 ),
                               ),
-                    ),
+                      ),
 
-                    Divider(
-                      color: WoofCareColors.dividerColor,
-                      thickness: 2,
-                      indent: 16,
-                      endIndent: 16,
-                    ),
+                      Divider(
+                        color: WoofCareColors.dividerColor,
+                        thickness: 2,
+                        indent: 16,
+                        endIndent: 16,
+                      ),
 
-                    // List of fact item
-                    Expanded(
-                      child: ListView.builder(
-                        itemCount:
-                            isCurrentUser && _editMode
-                                ? _selOptions.length + 1
-                                : _selOptions.length,
-                        itemBuilder: (context, index) {
-                          // "add a fact" button at top of list if in edit mode
-                          if (isCurrentUser && _editMode && index == 0) {
+                      // List of fact item
+                      Expanded(
+                        child: ListView.builder(
+                          itemCount: isCurrentUser && _editMode
+                              ? _selOptions.length + 1
+                              : _selOptions.length,
+                          itemBuilder: (context, index) {
+                            // "add a fact" button at top of list if in edit mode
+                            if (isCurrentUser && _editMode && index == 0) {
+                              return ListTile(
+                                dense: true,
+                                contentPadding: EdgeInsets.symmetric(
+                                  horizontal: 24,
+                                  vertical: 0,
+                                ),
+                                leading: Icon(
+                                  Icons.add,
+                                  color: WoofCareColors.buttonColor,
+                                ),
+                                title: Text(
+                                  "Add a new fact",
+                                  style: TextStyle(
+                                    color: WoofCareColors.buttonColor,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                onTap: () async {
+                                  FactOption?
+                                  newFact = await showDialog<FactOption>(
+                                    context: context,
+                                    builder: (BuildContext context) {
+                                      FactOption? selectedFact =
+                                          _factOptions.first;
+                                      return AlertDialog(
+                                        backgroundColor:
+                                            WoofCareColors.offWhite,
+                                        title: Text(
+                                          "Choose a fact",
+                                          style: TextStyle(
+                                            color: WoofCareColors
+                                                .primaryTextAndIcons,
+                                            fontSize: 24,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        content: StatefulBuilder(
+                                          builder: (context, setModalState) {
+                                            return DropdownButton<FactOption>(
+                                              isExpanded: true,
+                                              value: selectedFact,
+                                              dropdownColor:
+                                                  WoofCareColors.offWhite,
+                                              items: _factOptions.map((fact) {
+                                                return DropdownMenuItem<
+                                                  FactOption
+                                                >(
+                                                  value: fact,
+                                                  child: Row(
+                                                    children: [
+                                                      Icon(
+                                                        fact.icon,
+                                                        color: WoofCareColors
+                                                            .primaryTextAndIcons,
+                                                      ),
+                                                      SizedBox(width: 8),
+                                                      Flexible(
+                                                        child: Text(
+                                                          fact.label,
+                                                          softWrap: true,
+                                                          overflow: TextOverflow
+                                                              .visible,
+                                                          style: TextStyle(
+                                                            color: WoofCareColors
+                                                                .primaryTextAndIcons,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                );
+                                              }).toList(),
+                                              onChanged: (value) {
+                                                setModalState(() {
+                                                  selectedFact = value!;
+                                                });
+                                              },
+                                            );
+                                          },
+                                        ),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () =>
+                                                Navigator.pop(context, null),
+                                            child: Text("Cancel"),
+                                          ),
+                                          ElevatedButton(
+                                            onPressed: () {
+                                              if (selectedFact == null) return;
+
+                                              // Check if the fact already exists in the list
+                                              final alreadyExists = _selOptions
+                                                  .any(
+                                                    (f) =>
+                                                        f.label ==
+                                                        selectedFact!.label,
+                                                  );
+
+                                              if (alreadyExists) {
+                                                // Show alert/snackbar
+                                                ScaffoldMessenger.of(
+                                                  context,
+                                                ).showSnackBar(
+                                                  SnackBar(
+                                                    content: Text(
+                                                      "This fact is already in your list.",
+                                                    ),
+                                                    duration: Duration(
+                                                      seconds: 2,
+                                                    ),
+                                                    backgroundColor:
+                                                        Colors.redAccent,
+                                                  ),
+                                                );
+                                              } else {
+                                                Navigator.pop(
+                                                  context,
+                                                  selectedFact,
+                                                );
+                                              }
+                                            },
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor:
+                                                  WoofCareColors.buttonColor,
+                                            ),
+                                            child: const Text(
+                                              "Add",
+                                              style: TextStyle(
+                                                color: WoofCareColors.offWhite,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      );
+                                    },
+                                  );
+
+                                  if (newFact == null) return;
+
+                                  // Add the chosen fact
+                                  setState(() {
+                                    _selOptions.add(newFact);
+                                  });
+                                },
+                              );
+                            }
+
+                            final fact =
+                                _selOptions[index -
+                                    (isCurrentUser && _editMode
+                                        ? 1
+                                        : 0)]; // Adjust index if in edit mode
                             return ListTile(
                               dense: true,
                               contentPadding: EdgeInsets.symmetric(
@@ -569,179 +742,20 @@ class _ProfilePageState extends State<ProfilePage> {
                                 vertical: 0,
                               ),
                               leading: Icon(
-                                Icons.add,
-                                color: WoofCareColors.buttonColor,
+                                fact.icon,
+                                color: WoofCareColors.primaryTextAndIcons,
                               ),
                               title: Text(
-                                "Add a new fact",
+                                fact.label,
                                 style: TextStyle(
-                                  color: WoofCareColors.buttonColor,
+                                  color: WoofCareColors.primaryTextAndIcons,
                                   fontSize: 12,
-                                  fontWeight: FontWeight.bold,
                                 ),
                               ),
-                              onTap: () async {
-                                FactOption?
-                                newFact = await showDialog<FactOption>(
-                                  context: context,
-                                  builder: (BuildContext context) {
-                                    FactOption? selectedFact =
-                                        _factOptions.first;
-                                    return AlertDialog(
-                                      backgroundColor: WoofCareColors.offWhite,
-                                      title: Text(
-                                        "Choose a fact",
-                                        style: TextStyle(
-                                          color:
-                                              WoofCareColors
-                                                  .primaryTextAndIcons,
-                                          fontSize: 24,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      content: StatefulBuilder(
-                                        builder: (context, setModalState) {
-                                          return DropdownButton<FactOption>(
-                                            isExpanded: true,
-                                            value: selectedFact,
-                                            dropdownColor:
-                                                WoofCareColors.offWhite,
-                                            items:
-                                                _factOptions.map((fact) {
-                                                  return DropdownMenuItem<
-                                                    FactOption
-                                                  >(
-                                                    value: fact,
-                                                    child: Row(
-                                                      children: [
-                                                        Icon(
-                                                          fact.icon,
-                                                          color:
-                                                              WoofCareColors
-                                                                  .primaryTextAndIcons,
-                                                        ),
-                                                        SizedBox(width: 8),
-                                                        Flexible(
-                                                          child: Text(
-                                                            fact.label,
-                                                            softWrap: true,
-                                                            overflow:
-                                                                TextOverflow
-                                                                    .visible,
-                                                            style: TextStyle(
-                                                              color:
-                                                                  WoofCareColors
-                                                                      .primaryTextAndIcons,
-                                                            ),
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  );
-                                                }).toList(),
-                                            onChanged: (value) {
-                                              setModalState(() {
-                                                selectedFact = value!;
-                                              });
-                                            },
-                                          );
-                                        },
-                                      ),
-                                      actions: [
-                                        TextButton(
-                                          onPressed:
-                                              () =>
-                                                  Navigator.pop(context, null),
-                                          child: Text("Cancel"),
-                                        ),
-                                        ElevatedButton(
-                                          onPressed: () {
-                                            if (selectedFact == null) return;
 
-                                            // Check if the fact already exists in the list
-                                            final alreadyExists = _selOptions
-                                                .any(
-                                                  (f) =>
-                                                      f.label ==
-                                                      selectedFact!.label,
-                                                );
-
-                                            if (alreadyExists) {
-                                              // Show alert/snackbar
-                                              ScaffoldMessenger.of(
-                                                context,
-                                              ).showSnackBar(
-                                                SnackBar(
-                                                  content: Text(
-                                                    "This fact is already in your list.",
-                                                  ),
-                                                  duration: Duration(
-                                                    seconds: 2,
-                                                  ),
-                                                  backgroundColor:
-                                                      Colors.redAccent,
-                                                ),
-                                              );
-                                            } else {
-                                              Navigator.pop(
-                                                context,
-                                                selectedFact,
-                                              );
-                                            }
-                                          },
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor:
-                                                WoofCareColors.buttonColor,
-                                          ),
-                                          child: const Text(
-                                            "Add",
-                                            style: TextStyle(
-                                              color: WoofCareColors.offWhite,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    );
-                                  },
-                                );
-
-                                if (newFact == null) return;
-
-                                // Add the chosen fact
-                                setState(() {
-                                  _selOptions.add(newFact);
-                                });
-                              },
-                            );
-                          }
-
-                          final fact =
-                              _selOptions[index -
-                                  (isCurrentUser && _editMode
-                                      ? 1
-                                      : 0)]; // Adjust index if in edit mode
-                          return ListTile(
-                            dense: true,
-                            contentPadding: EdgeInsets.symmetric(
-                              horizontal: 24,
-                              vertical: 0,
-                            ),
-                            leading: Icon(
-                              fact.icon,
-                              color: WoofCareColors.primaryTextAndIcons,
-                            ),
-                            title: Text(
-                              fact.label,
-                              style: TextStyle(
-                                color: WoofCareColors.primaryTextAndIcons,
-                                fontSize: 12,
-                              ),
-                            ),
-
-                            //show delete only in edit mode
-                            trailing:
-                                isCurrentUser && _editMode
-                                    ? IconButton(
+                              //show delete only in edit mode
+                              trailing: isCurrentUser && _editMode
+                                  ? IconButton(
                                       icon: Icon(
                                         Icons.delete,
                                         color: WoofCareColors.buttonColor,
@@ -753,16 +767,17 @@ class _ProfilePageState extends State<ProfilePage> {
                                         });
                                       },
                                     )
-                                    : null,
-                          );
-                        },
+                                  : null,
+                            );
+                          },
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -846,7 +861,10 @@ class _FollowBottomSheetState extends State<FollowBottomSheet>
                 labelColor: WoofCareColors.buttonColor,
                 unselectedLabelColor: WoofCareColors.primaryTextAndIcons,
                 indicatorColor: WoofCareColors.buttonColor,
-                tabs: const [Tab(text: 'Following'), Tab(text: 'Followers')],
+                tabs: const [
+                  Tab(text: 'Following'),
+                  Tab(text: 'Followers'),
+                ],
               ),
 
               // Tab views
@@ -920,27 +938,25 @@ class _FollowBottomSheetState extends State<FollowBottomSheet>
               color: WoofCareColors.primaryTextAndIcons,
             ),
           ),
-          trailing:
-              isFollowers
-                  ? IconButton(
-                    icon: const Icon(Icons.person_add),
-                    color: WoofCareColors.buttonColor,
-                    onPressed: () {
-                      // TODO: Add follow back functionality
-                    },
-                  )
-                  : null,
+          trailing: isFollowers
+              ? IconButton(
+                  icon: const Icon(Icons.person_add),
+                  color: WoofCareColors.buttonColor,
+                  onPressed: () {
+                    // TODO: Add follow back functionality
+                  },
+                )
+              : null,
           onTap: () {
             // Navigate to user profile page
             Navigator.pop(context);
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder:
-                    (context) => ViewProfilePage(
-                      userName: user['name'],
-                      photoID: user['photoID'],
-                    ),
+                builder: (context) => ViewProfilePage(
+                  userName: user['name'],
+                  photoID: user['photoID'],
+                ),
               ),
             );
           },

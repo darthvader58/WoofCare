@@ -1,6 +1,7 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:woofcare/config/colors.dart';
+import 'package:woofcare/ui/widgets/web_design_system.dart';
 
 import '/config/constants.dart';
 import '/services/auth.dart';
@@ -49,8 +50,12 @@ class _LogInPageState extends State<LogInPage> {
 
   @override
   Widget build(BuildContext context) {
+    final web = WoofCareWebDesign.enabled;
+
     return Scaffold(
-      backgroundColor: WoofCareColors.primaryBackground,
+      backgroundColor: web
+          ? WoofCareWebDesign.canvas
+          : WoofCareColors.primaryBackground,
       resizeToAvoidBottomInset: true,
       body: AuthBackground(
         child: Center(
@@ -83,26 +88,42 @@ class _LogInPageState extends State<LogInPage> {
                     //Welcome Back Message
                     Text(
                       textAlign: TextAlign.center,
-                      _accountType == AuthAccountType.organization
+                      web
+                          ? 'Sign in to your workspace'
+                          : _accountType == AuthAccountType.organization
                           ? "Welcome Back, Organization"
                           : "Welcome Back to WoofCare!",
-                      style: const TextStyle(
-                        color: WoofCareColors.primaryTextAndIcons,
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
+                      style: TextStyle(
+                        color: web
+                            ? WoofCareWebDesign.text
+                            : WoofCareColors.primaryTextAndIcons,
+                        fontSize: web ? 25 : 28,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: web ? -0.4 : 0,
                       ),
                     ),
 
-                    const SizedBox(height: 5),
+                    SizedBox(height: web ? 9 : 5),
 
-                    const Divider(
-                      color: WoofCareColors.primaryTextAndIcons,
-                      thickness: 3,
-                      indent: 50,
-                      endIndent: 50,
-                    ),
+                    if (web)
+                      const Text(
+                        'Enter your credentials to access WoofCare.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: WoofCareWebDesign.textMuted,
+                          fontSize: 14,
+                        ),
+                      ),
 
-                    const SizedBox(height: 35),
+                    if (!web)
+                      const Divider(
+                        color: WoofCareColors.primaryTextAndIcons,
+                        thickness: 3,
+                        indent: 50,
+                        endIndent: 50,
+                      ),
+
+                    SizedBox(height: web ? 28 : 35),
 
                     //Email Field
                     CustomTextField(
@@ -111,7 +132,7 @@ class _LogInPageState extends State<LogInPage> {
                       prefix: Icons.email,
                     ),
 
-                    const SizedBox(height: 35),
+                    SizedBox(height: web ? 18 : 35),
 
                     CustomTextField(
                       controller: _passwordTextController,
@@ -119,10 +140,9 @@ class _LogInPageState extends State<LogInPage> {
                       obscureText: _hidePassword,
                       prefix: Icons.lock,
                       onSuffixTap: () => _showPassword(),
-                      suffix:
-                          _hidePassword
-                              ? Icons.visibility
-                              : Icons.visibility_off,
+                      suffix: _hidePassword
+                          ? Icons.visibility
+                          : Icons.visibility_off,
                       maxLines: 1,
                     ),
 
@@ -165,59 +185,53 @@ class _LogInPageState extends State<LogInPage> {
                               style: theme.textTheme.bodyMedium!.copyWith(
                                 color: WoofCareColors.interactibleText,
                               ),
-                              recognizer:
-                                  TapGestureRecognizer()
-                                    ..onTap =
-                                        () => Navigator.pushNamed(
-                                          context,
-                                          "/forgotpw",
-                                        ),
+                              recognizer: TapGestureRecognizer()
+                                ..onTap = () =>
+                                    Navigator.pushNamed(context, "/forgotpw"),
                             ),
                           ),
                         ],
                       ),
                     ),
 
-                    const SizedBox(height: 25.0),
+                    SizedBox(height: web ? 20 : 25),
 
                     //Log In Button
                     CustomButton(
                       text: "Log In",
                       icon: Icons.login,
                       // margin: 30,
-                      onTap:
-                          () => Auth.login(
-                            context: context,
-                            email: _emailTextController.text.trim(),
-                            password: _passwordTextController.text.trim(),
-                            expectedAccountType: _accountType.name,
-                            error: (e) {
-                              // If email is not valid, then display error message
-                              setState(() {
-                                _visibleMessage = true;
+                      onTap: () => Auth.login(
+                        context: context,
+                        email: _emailTextController.text.trim(),
+                        password: _passwordTextController.text.trim(),
+                        expectedAccountType: _accountType.name,
+                        error: (e) {
+                          // If email is not valid, then display error message
+                          setState(() {
+                            _visibleMessage = true;
 
-                                if (e.code == "channel-error") {
-                                  // Could be improved upon
-                                  errorMessage =
-                                      "Please provide an email and/or password";
-                                } else if (e.code == "invalid-email") {
-                                  errorMessage =
-                                      "Email address is badly formatted";
-                                } else if (e.code == "invalid-credential") {
-                                  errorMessage =
-                                      "Auth credential is malformed or has expired.";
-                                } else if (e.code == "wrong-account-type") {
-                                  errorMessage = e.message;
-                                } else {
-                                  errorMessage = e.message;
-                                }
+                            if (e.code == "channel-error") {
+                              // Could be improved upon
+                              errorMessage =
+                                  "Please provide an email and/or password";
+                            } else if (e.code == "invalid-email") {
+                              errorMessage = "Email address is badly formatted";
+                            } else if (e.code == "invalid-credential") {
+                              errorMessage =
+                                  "Auth credential is malformed or has expired.";
+                            } else if (e.code == "wrong-account-type") {
+                              errorMessage = e.message;
+                            } else {
+                              errorMessage = e.message;
+                            }
 
-                                _errorTextController.text = errorMessage ?? '';
-                              });
+                            _errorTextController.text = errorMessage ?? '';
+                          });
 
-                              hideMessage();
-                            },
-                          ),
+                          hideMessage();
+                        },
+                      ),
                     ),
 
                     const SizedBox(height: 15),
@@ -226,10 +240,12 @@ class _LogInPageState extends State<LogInPage> {
                     RichText(
                       text: TextSpan(
                         text: "Don't have an account? ",
-                        style: const TextStyle(
-                          fontFamily: "ABeeZee",
-                          color: WoofCareColors.primaryTextAndIcons,
-                          fontSize: 12,
+                        style: TextStyle(
+                          fontFamily: web ? null : "ABeeZee",
+                          color: web
+                              ? WoofCareWebDesign.textMuted
+                              : WoofCareColors.primaryTextAndIcons,
+                          fontSize: web ? 13 : 12,
                         ),
                         children: <TextSpan>[
                           TextSpan(
@@ -237,13 +253,9 @@ class _LogInPageState extends State<LogInPage> {
                             style: theme.textTheme.bodyMedium!.copyWith(
                               color: WoofCareColors.interactibleText,
                             ),
-                            recognizer:
-                                TapGestureRecognizer()
-                                  ..onTap =
-                                      () => Navigator.pushNamed(
-                                        context,
-                                        "/signup",
-                                      ),
+                            recognizer: TapGestureRecognizer()
+                              ..onTap = () =>
+                                  Navigator.pushNamed(context, "/signup"),
                           ),
                         ],
                       ),
