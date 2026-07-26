@@ -5,6 +5,7 @@ import 'package:woofcare/config/colors.dart';
 import 'package:woofcare/models/profile.dart';
 import 'package:woofcare/services/location_privacy.dart';
 import 'package:woofcare/ui/pages/profile/profile.dart';
+import 'package:woofcare/ui/widgets/responsive.dart';
 
 import '/config/constants.dart';
 
@@ -78,60 +79,53 @@ class _ChatPageState extends State<ChatPage> {
           color: WoofCareColors.primaryTextAndIcons,
           size: 26,
         ),
-        actions:
-            _isAnonymousDisplay(displayParticipant)
-                ? []
-                : [
-                  Padding(
-                    padding: const EdgeInsets.only(right: 12),
-                    child: IconButton.filledTonal(
-                      style: IconButton.styleFrom(
-                        backgroundColor: WoofCareColors.floatingActionIcons
-                            .withValues(alpha: 0.14),
-                        foregroundColor: WoofCareColors.floatingActionIcons,
-                      ),
-                      icon: const Icon(Icons.phone_rounded),
-                      onPressed: () {},
+        actions: _isAnonymousDisplay(displayParticipant)
+            ? []
+            : [
+                Padding(
+                  padding: const EdgeInsets.only(right: 12),
+                  child: IconButton.filledTonal(
+                    style: IconButton.styleFrom(
+                      backgroundColor: WoofCareColors.floatingActionIcons
+                          .withValues(alpha: 0.14),
+                      foregroundColor: WoofCareColors.floatingActionIcons,
                     ),
+                    icon: const Icon(Icons.phone_rounded),
+                    onPressed: () {},
                   ),
-                ],
+                ),
+              ],
         title: GestureDetector(
-          onTap:
-              profileLookupName == null
-                  ? null
-                  : () async {
-                    final userProfile = await Profile.fromName(
-                      profileLookupName,
+          onTap: profileLookupName == null
+              ? null
+              : () async {
+                  final userProfile = await Profile.fromName(profileLookupName);
+                  if (userProfile != null && context.mounted) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ProfilePage(user: userProfile),
+                      ),
                     );
-                    if (userProfile != null && context.mounted) {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => ProfilePage(user: userProfile),
-                        ),
-                      );
-                    }
-                  },
+                  }
+                },
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               CircleAvatar(
-                backgroundColor:
-                    _isAnonymousDisplay(displayParticipant)
-                        ? WoofCareColors.buttonColor
-                        : WoofCareColors.backgroundElementColor,
+                backgroundColor: _isAnonymousDisplay(displayParticipant)
+                    ? WoofCareColors.buttonColor
+                    : WoofCareColors.backgroundElementColor,
                 radius: 22,
-                backgroundImage:
-                    _isAnonymousDisplay(displayParticipant)
-                        ? null
-                        : const AssetImage("assets/images/placeholders/1.jpg"),
-                child:
-                    _isAnonymousDisplay(displayParticipant)
-                        ? const Icon(
-                          Icons.visibility_off_rounded,
-                          color: WoofCareColors.offWhite,
-                        )
-                        : null,
+                backgroundImage: _isAnonymousDisplay(displayParticipant)
+                    ? null
+                    : const AssetImage("assets/images/placeholders/1.jpg"),
+                child: _isAnonymousDisplay(displayParticipant)
+                    ? const Icon(
+                        Icons.visibility_off_rounded,
+                        color: WoofCareColors.offWhite,
+                      )
+                    : null,
               ),
               const SizedBox(width: 10),
               Flexible(
@@ -169,19 +163,22 @@ class _ChatPageState extends State<ChatPage> {
       body: SafeArea(
         top: false,
         bottom: false,
-        child: Column(
-          children: [
-            _ReportLocationConsentPanel(
-              chatId: chatID,
-              conversationData: conversationData,
-            ),
-            _Messages(chatId: chatID, conversationData: conversationData),
-            _ChatComposer(
-              controller: _messageController,
-              sendDisabled: _isSendButtonDisabled,
-              onSend: () => submit(context),
-            ),
-          ],
+        child: WoofCareContentSurface(
+          maxWidth: 900,
+          child: Column(
+            children: [
+              _ReportLocationConsentPanel(
+                chatId: chatID,
+                conversationData: conversationData,
+              ),
+              _Messages(chatId: chatID, conversationData: conversationData),
+              _ChatComposer(
+                controller: _messageController,
+                sendDisabled: _isSendButtonDisabled,
+                onSend: () => submit(context),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -304,10 +301,12 @@ class _ReportLocationConsentPanelState
     }
 
     final reportId = widget.conversationData['reportId']?.toString().trim();
-    final reporterUserId =
-        widget.conversationData['reporterUserId']?.toString().trim();
-    final requesterUserId =
-        widget.conversationData['requesterUserId']?.toString().trim();
+    final reporterUserId = widget.conversationData['reporterUserId']
+        ?.toString()
+        .trim();
+    final requesterUserId = widget.conversationData['requesterUserId']
+        ?.toString()
+        .trim();
 
     if (reportId == null || reportId.isEmpty) {
       return const SizedBox.shrink();
@@ -355,11 +354,10 @@ class _ReportLocationConsentPanelState
         }
 
         return StreamBuilder<DocumentSnapshot>(
-          stream:
-              FIRESTORE
-                  .collection('report_location_grants')
-                  .doc(grantContext.grantDocumentId)
-                  .snapshots(),
+          stream: FIRESTORE
+              .collection('report_location_grants')
+              .doc(grantContext.grantDocumentId)
+              .snapshots(),
           builder: (context, grantSnapshot) {
             final grantData =
                 grantSnapshot.data?.data() as Map<String, dynamic>?;
@@ -374,18 +372,17 @@ class _ReportLocationConsentPanelState
               return _LocationConsentShell(
                 icon: Icons.verified_rounded,
                 title: 'Exact location shared',
-                message:
-                    grantContext.isRequester
-                        ? 'The reporter shared this report location with you.'
-                        : 'This helper can now access the exact report location.',
-                actionLabel:
-                    grantContext.isRequester ? 'View exact location' : null,
+                message: grantContext.isRequester
+                    ? 'The reporter shared this report location with you.'
+                    : 'This helper can now access the exact report location.',
+                actionLabel: grantContext.isRequester
+                    ? 'View exact location'
+                    : null,
                 actionIcon: Icons.map_rounded,
                 busy: _isResolving,
-                onAction:
-                    grantContext.isRequester
-                        ? () => _showExactLocation(grantContext)
-                        : null,
+                onAction: grantContext.isRequester
+                    ? () => _showExactLocation(grantContext)
+                    : null,
               );
             }
 
@@ -445,23 +442,22 @@ class _ReportLocationConsentPanelState
   ) async {
     final shouldGrant = await showDialog<bool>(
       context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Share exact location?'),
-            content: const Text(
-              'Only this chat helper will be granted access. Your anonymous reporter display stays private.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancel'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text('Share'),
-              ),
-            ],
+      builder: (context) => AlertDialog(
+        title: const Text('Share exact location?'),
+        content: const Text(
+          'Only this chat helper will be granted access. Your anonymous reporter display stays private.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
           ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Share'),
+          ),
+        ],
+      ),
     );
 
     if (shouldGrant != true || !mounted) return;
@@ -514,24 +510,23 @@ class _ReportLocationConsentPanelState
 
       await showDialog<void>(
         context: context,
-        builder:
-            (context) => AlertDialog(
-              title: const Text('Exact location'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Latitude: ${location.latitude.toStringAsFixed(6)}'),
-                  Text('Longitude: ${location.longitude.toStringAsFixed(6)}'),
-                ],
-              ),
-              actions: [
-                FilledButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Done'),
-                ),
-              ],
+        builder: (context) => AlertDialog(
+          title: const Text('Exact location'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Latitude: ${location.latitude.toStringAsFixed(6)}'),
+              Text('Longitude: ${location.longitude.toStringAsFixed(6)}'),
+            ],
+          ),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Done'),
             ),
+          ],
+        ),
       );
     } catch (error) {
       if (mounted) {
@@ -633,14 +628,13 @@ class _LocationConsentShell extends StatelessWidget {
                 visualDensity: VisualDensity.compact,
               ),
               onPressed: busy ? null : onAction,
-              icon:
-                  busy
-                      ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                      : Icon(actionIcon, size: 18),
+              icon: busy
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Icon(actionIcon, size: 18),
               label: Text(
                 actionLabel!,
                 style: const TextStyle(fontWeight: FontWeight.w800),
@@ -682,13 +676,12 @@ class _Messages extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<QuerySnapshot>(
-      stream:
-          FIRESTORE
-              .collection("conversations")
-              .doc(chatId)
-              .collection("messages")
-              .orderBy("time", descending: true)
-              .snapshots(),
+      stream: FIRESTORE
+          .collection("conversations")
+          .doc(chatId)
+          .collection("messages")
+          .orderBy("time", descending: true)
+          .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return Expanded(
@@ -729,10 +722,9 @@ class _Messages extends StatelessWidget {
               text: data['text']?.toString() ?? '',
               sender: _senderDisplayName(sender, senderId),
               time: data['time'] as Timestamp,
-              isSelf:
-                  senderId != null
-                      ? senderId == profile.id
-                      : profile.name == sender,
+              isSelf: senderId != null
+                  ? senderId == profile.id
+                  : profile.name == sender,
             ),
           );
         }
@@ -759,12 +751,12 @@ class _Messages extends StatelessWidget {
     final reporterName = conversationData['reporterName']?.toString();
     final requesterName = conversationData['requesterName']?.toString();
 
-    final isReporterMessage =
-        senderId != null ? senderId == reporterUserId : sender == reporterName;
-    final isRequesterMessage =
-        senderId != null
-            ? senderId == requesterUserId
-            : sender == requesterName;
+    final isReporterMessage = senderId != null
+        ? senderId == reporterUserId
+        : sender == reporterName;
+    final isRequesterMessage = senderId != null
+        ? senderId == requesterUserId
+        : sender == requesterName;
 
     if (isReporterMessage && conversationData['anonymousReporter'] == true) {
       return 'Anonymous Reporter';
@@ -800,13 +792,16 @@ class _Message extends StatelessWidget {
       alignment: isSelf ? Alignment.centerRight : Alignment.centerLeft,
       child: ConstrainedBox(
         constraints: BoxConstraints(
-          maxWidth: MediaQuery.sizeOf(context).width * 0.76,
+          maxWidth: MediaQuery.sizeOf(context).width < 820
+              ? MediaQuery.sizeOf(context).width * 0.76
+              : 620,
         ),
         child: Padding(
           padding: const EdgeInsets.only(bottom: 12),
           child: Column(
-            crossAxisAlignment:
-                isSelf ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+            crossAxisAlignment: isSelf
+                ? CrossAxisAlignment.end
+                : CrossAxisAlignment.start,
             children: [
               if (!isSelf)
                 Padding(
@@ -828,10 +823,9 @@ class _Message extends StatelessWidget {
                   vertical: 11,
                 ),
                 decoration: BoxDecoration(
-                  color:
-                      isSelf
-                          ? WoofCareColors.buttonColor
-                          : WoofCareColors.secondaryBackground,
+                  color: isSelf
+                      ? WoofCareColors.buttonColor
+                      : WoofCareColors.secondaryBackground,
                   borderRadius: BorderRadius.only(
                     topLeft: const Radius.circular(20),
                     topRight: const Radius.circular(20),
@@ -849,10 +843,9 @@ class _Message extends StatelessWidget {
                 child: Text(
                   text,
                   style: TextStyle(
-                    color:
-                        isSelf
-                            ? WoofCareColors.offWhite
-                            : WoofCareColors.primaryTextAndIcons,
+                    color: isSelf
+                        ? WoofCareColors.offWhite
+                        : WoofCareColors.primaryTextAndIcons,
                     fontSize: 16,
                     height: 1.32,
                     fontWeight: FontWeight.w500,
@@ -952,10 +945,9 @@ class _ChatComposer extends StatelessWidget {
           const SizedBox(width: 10),
           IconButton.filled(
             style: IconButton.styleFrom(
-              backgroundColor:
-                  sendDisabled
-                      ? WoofCareColors.gray
-                      : WoofCareColors.buttonColor,
+              backgroundColor: sendDisabled
+                  ? WoofCareColors.gray
+                  : WoofCareColors.buttonColor,
               foregroundColor: WoofCareColors.offWhite,
               fixedSize: const Size(48, 48),
             ),

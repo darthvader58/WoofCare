@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:woofcare/config/colors.dart';
 import 'package:woofcare/ui/widgets/app_chrome.dart';
+import 'package:woofcare/ui/widgets/responsive.dart';
 
 import '/config/constants.dart';
 import '/ui/widgets/custom_button.dart';
@@ -27,12 +28,11 @@ class _ConversationsPageState extends State<ConversationsPage> {
     QueryDocumentSnapshot conversation,
   ) async {
     try {
-      final messagesSnapshot =
-          await conversation.reference
-              .collection('messages')
-              .orderBy('time', descending: true)
-              .limit(1)
-              .get();
+      final messagesSnapshot = await conversation.reference
+          .collection('messages')
+          .orderBy('time', descending: true)
+          .limit(1)
+          .get();
 
       if (messagesSnapshot.docs.isNotEmpty) {
         final data = messagesSnapshot.docs.first.data();
@@ -51,14 +51,17 @@ class _ConversationsPageState extends State<ConversationsPage> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) {
-        return DraggableScrollableSheet(
-          initialChildSize: 0.6,
-          minChildSize: 0.4,
-          maxChildSize: 0.9,
-          expand: false,
-          builder: (context, scrollController) {
-            return const SearchBottomSheet();
-          },
+        return WoofCareSheetSurface(
+          maxWidth: 640,
+          child: DraggableScrollableSheet(
+            initialChildSize: 0.6,
+            minChildSize: 0.4,
+            maxChildSize: 0.9,
+            expand: false,
+            builder: (context, scrollController) {
+              return const SearchBottomSheet();
+            },
+          ),
         );
       },
     );
@@ -79,9 +82,8 @@ class _ConversationsPageState extends State<ConversationsPage> {
               height: 160,
               searchController: _searchController,
               searchHint: 'Search conversations',
-              onSearchChanged:
-                  (value) =>
-                      setState(() => _query = value.trim().toLowerCase()),
+              onSearchChanged: (value) =>
+                  setState(() => _query = value.trim().toLowerCase()),
               actions: [
                 IconButton.filledTonal(
                   tooltip: 'New conversation',
@@ -100,86 +102,100 @@ class _ConversationsPageState extends State<ConversationsPage> {
               ],
             ),
             Expanded(
-              child: StreamBuilder<QuerySnapshot>(
-                stream:
-                    FIRESTORE
-                        .collection("conversations")
-                        .where("participantIds", arrayContains: profile.id)
-                        .snapshots(),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(
-                      child: CircularProgressIndicator(
-                        color: WoofCareColors.buttonColor,
-                      ),
-                    );
-                  }
-
-                  if (snapshot.hasError) {
-                    return Center(
-                      child: Text(
-                        "Unable to load conversations",
-                        style: TextStyle(
-                          color: WoofCareColors.errorMessageColor,
+              child: WoofCareContentSurface(
+                maxWidth: 920,
+                child: StreamBuilder<QuerySnapshot>(
+                  stream: FIRESTORE
+                      .collection("conversations")
+                      .where("participantIds", arrayContains: profile.id)
+                      .snapshots(),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(
+                        child: CircularProgressIndicator(
+                          color: WoofCareColors.buttonColor,
                         ),
-                      ),
-                    );
-                  }
-
-                  final now = DateTime.now();
-                  final conversations =
-                      (snapshot.data?.docs ?? []).where((conversation) {
-                        if (_isExpiredAnonymousChat(conversation, now)) {
-                          return false;
-                        }
-                        final participant = _participantName(conversation);
-                        return _query.isEmpty ||
-                            participant.toLowerCase().contains(_query);
-                      }).toList();
-
-                  if (conversations.isEmpty) {
-                    return WoofCareEmptyState(
-                      icon: Icons.chat_bubble_outline,
-                      title: "No Conversations Yet",
-                      message: "Start a new chat to coordinate help.",
-                      action: CustomButton(
-                        text: "New Chat",
-                        icon: Icons.add,
-                        margin: 0,
-                        verticalPadding: 14,
-                        onTap: _openSearchSheet,
-                      ),
-                    );
-                  }
-
-                  return ListView.separated(
-                    padding: const EdgeInsets.only(bottom: 124),
-                    itemCount: conversations.length,
-                    separatorBuilder:
-                        (context, index) => const SizedBox.shrink(),
-                    itemBuilder: (context, index) {
-                      final conversation = conversations[index];
-                      final participant = _participantName(conversation);
-
-                      return _ConversationRow(
-                        name: participant,
-                        lastMessage: getLastConversationMessage(conversation),
-                        placeholderIndex: index,
-                        onTap: () {
-                          Navigator.pushNamed(
-                            context,
-                            '/chat',
-                            arguments: {
-                              'chatID': conversation.id,
-                              'photoID': index,
-                              'participant': participant,
-                            },
-                          );
-                        },
                       );
-                    },
-                  );
-                },
+                    }
+
+                    if (snapshot.hasError) {
+                      return Center(
+                        child: Text(
+                          "Unable to load conversations",
+                          style: TextStyle(
+                            color: WoofCareColors.errorMessageColor,
+                          ),
+                        ),
+                      );
+                    }
+
+                    final now = DateTime.now();
+                    final conversations = (snapshot.data?.docs ?? []).where((
+                      conversation,
+                    ) {
+                      if (_isExpiredAnonymousChat(conversation, now)) {
+                        return false;
+                      }
+                      final participant = _participantName(conversation);
+                      return _query.isEmpty ||
+                          participant.toLowerCase().contains(_query);
+                    }).toList();
+
+                    if (conversations.isEmpty) {
+                      return WoofCareEmptyState(
+                        icon: Icons.chat_bubble_outline,
+                        title: "No Conversations Yet",
+                        message: "Start a new chat to coordinate help.",
+                        action: CustomButton(
+                          text: "New Chat",
+                          icon: Icons.add,
+                          margin: 0,
+                          verticalPadding: 14,
+                          onTap: _openSearchSheet,
+                        ),
+                      );
+                    }
+
+                    return ListView.separated(
+                      padding: EdgeInsets.fromLTRB(
+                        MediaQuery.sizeOf(context).width >=
+                                WoofCareBreakpoints.compact
+                            ? 18
+                            : 0,
+                        10,
+                        MediaQuery.sizeOf(context).width >=
+                                WoofCareBreakpoints.compact
+                            ? 18
+                            : 0,
+                        124,
+                      ),
+                      itemCount: conversations.length,
+                      separatorBuilder: (context, index) =>
+                          const SizedBox.shrink(),
+                      itemBuilder: (context, index) {
+                        final conversation = conversations[index];
+                        final participant = _participantName(conversation);
+
+                        return _ConversationRow(
+                          name: participant,
+                          lastMessage: getLastConversationMessage(conversation),
+                          placeholderIndex: index,
+                          onTap: () {
+                            Navigator.pushNamed(
+                              context,
+                              '/chat',
+                              arguments: {
+                                'chatID': conversation.id,
+                                'photoID': index,
+                                'participant': participant,
+                              },
+                            );
+                          },
+                        );
+                      },
+                    );
+                  },
+                ),
               ),
             ),
           ],
@@ -387,20 +403,17 @@ class _SearchBottomSheetState extends State<SearchBottomSheet> {
 
     final snapshot = await FirebaseFirestore.instance.collection("users").get();
 
-    final matches =
-        snapshot.docs
-            .where(
-              (user) => user["name"].toString().toLowerCase().contains(
-                query.toLowerCase(),
-              ),
-            )
-            .map(
-              (user) => _UserSearchResult(
-                id: user.id,
-                name: user["name"].toString(),
-              ),
-            )
-            .toList();
+    final matches = snapshot.docs
+        .where(
+          (user) => user["name"].toString().toLowerCase().contains(
+            query.toLowerCase(),
+          ),
+        )
+        .map(
+          (user) =>
+              _UserSearchResult(id: user.id, name: user["name"].toString()),
+        )
+        .toList();
 
     if (!mounted) return;
     setState(() => searchResults = matches);
@@ -410,11 +423,10 @@ class _SearchBottomSheetState extends State<SearchBottomSheet> {
     BuildContext context,
     _UserSearchResult selectedUser,
   ) async {
-    final snapshot =
-        await FirebaseFirestore.instance
-            .collection('conversations')
-            .where("participantIds", arrayContains: profile.id)
-            .get();
+    final snapshot = await FirebaseFirestore.instance
+        .collection('conversations')
+        .where("participantIds", arrayContains: profile.id)
+        .get();
 
     final conversations = snapshot.docs.where((doc) {
       final data = doc.data();
@@ -423,16 +435,13 @@ class _SearchBottomSheetState extends State<SearchBottomSheet> {
       return participantIds.contains(selectedUser.id);
     });
 
-    final chatID =
-        conversations.isEmpty
-            ? (await FirebaseFirestore.instance.collection("conversations").add(
-              {
-                "messages": [],
-                "participants": [profile.name, selectedUser.name],
-                "participantIds": [profile.id, selectedUser.id],
-              },
-            )).id
-            : conversations.first.id;
+    final chatID = conversations.isEmpty
+        ? (await FirebaseFirestore.instance.collection("conversations").add({
+            "messages": [],
+            "participants": [profile.name, selectedUser.name],
+            "participantIds": [profile.id, selectedUser.id],
+          })).id
+        : conversations.first.id;
 
     if (!context.mounted) return;
 
@@ -521,92 +530,85 @@ class _SearchBottomSheetState extends State<SearchBottomSheet> {
                     color: WoofCareColors.buttonColor,
                   ),
                 ),
-                suffixIcon:
-                    searchController.text.isNotEmpty
-                        ? IconButton(
-                          icon: const Icon(Icons.clear),
-                          onPressed: () {
-                            searchController.clear();
-                            setState(() => searchResults = []);
-                          },
-                        )
-                        : null,
+                suffixIcon: searchController.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          searchController.clear();
+                          setState(() => searchResults = []);
+                        },
+                      )
+                    : null,
                 suffixIconColor: WoofCareColors.primaryTextAndIcons,
               ),
               onChanged: searchUsers,
             ),
             const SizedBox(height: 12),
             Expanded(
-              child:
-                  searchResults.isEmpty
-                      ? const Center(
-                        child: Text(
-                          "No users found",
-                          style: TextStyle(
-                            color: WoofCareColors.primaryTextAndIcons,
-                            fontSize: 16,
-                          ),
+              child: searchResults.isEmpty
+                  ? const Center(
+                      child: Text(
+                        "No users found",
+                        style: TextStyle(
+                          color: WoofCareColors.primaryTextAndIcons,
+                          fontSize: 16,
                         ),
-                      )
-                      : ListView.builder(
-                        itemCount: searchResults.length,
-                        itemBuilder: (context, index) {
-                          final user = searchResults[index];
-                          final isSelected = user.id == selectedUser?.id;
-
-                          return Container(
-                            margin: const EdgeInsets.symmetric(vertical: 6),
-                            decoration: BoxDecoration(
-                              color:
-                                  isSelected
-                                      ? WoofCareColors.offWhite
-                                      : WoofCareColors.offWhite.withValues(
-                                        alpha: 0.88,
-                                      ),
-                              border: Border.all(
-                                color:
-                                    isSelected
-                                        ? WoofCareColors.floatingActionIcons
-                                        : WoofCareColors.offWhite,
-                                width: 2,
-                              ),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: ListTile(
-                              leading: CircleAvatar(
-                                backgroundColor:
-                                    isSelected
-                                        ? WoofCareColors.floatingActionIcons
-                                        : WoofCareColors.buttonColor,
-                                child: Icon(
-                                  Icons.person,
-                                  color:
-                                      isSelected
-                                          ? WoofCareColors.secondaryBackground
-                                          : WoofCareColors.offWhite,
-                                ),
-                              ),
-                              trailing: Icon(
-                                isSelected
-                                    ? Icons.check_circle_rounded
-                                    : Icons.arrow_forward_ios_rounded,
-                                color:
-                                    isSelected
-                                        ? WoofCareColors.floatingActionIcons
-                                        : WoofCareColors.buttonColor,
-                              ),
-                              title: Text(
-                                user.name,
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  color: WoofCareColors.primaryTextAndIcons,
-                                ),
-                              ),
-                              onTap: () => setState(() => selectedUser = user),
-                            ),
-                          );
-                        },
                       ),
+                    )
+                  : ListView.builder(
+                      itemCount: searchResults.length,
+                      itemBuilder: (context, index) {
+                        final user = searchResults[index];
+                        final isSelected = user.id == selectedUser?.id;
+
+                        return Container(
+                          margin: const EdgeInsets.symmetric(vertical: 6),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? WoofCareColors.offWhite
+                                : WoofCareColors.offWhite.withValues(
+                                    alpha: 0.88,
+                                  ),
+                            border: Border.all(
+                              color: isSelected
+                                  ? WoofCareColors.floatingActionIcons
+                                  : WoofCareColors.offWhite,
+                              width: 2,
+                            ),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: ListTile(
+                            leading: CircleAvatar(
+                              backgroundColor: isSelected
+                                  ? WoofCareColors.floatingActionIcons
+                                  : WoofCareColors.buttonColor,
+                              child: Icon(
+                                Icons.person,
+                                color: isSelected
+                                    ? WoofCareColors.secondaryBackground
+                                    : WoofCareColors.offWhite,
+                              ),
+                            ),
+                            trailing: Icon(
+                              isSelected
+                                  ? Icons.check_circle_rounded
+                                  : Icons.arrow_forward_ios_rounded,
+                              color: isSelected
+                                  ? WoofCareColors.floatingActionIcons
+                                  : WoofCareColors.buttonColor,
+                            ),
+                            title: Text(
+                              user.name,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                color: WoofCareColors.primaryTextAndIcons,
+                              ),
+                            ),
+                            onTap: () => setState(() => selectedUser = user),
+                          ),
+                        );
+                      },
+                    ),
             ),
             const SizedBox(height: 16),
             CustomButton(text: "Add User", icon: Icons.add, onTap: addUser),

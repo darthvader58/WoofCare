@@ -26,9 +26,12 @@ class MapPage extends StatefulWidget {
 }
 
 class _MapPageState extends State<MapPage> {
+  static const LatLng _worldFallbackCenter = LatLng(20, 0);
+
   final locationController = Location();
   GoogleMapController? _mapController;
   LatLng? currentPosition;
+  bool _locationAccessGranted = false;
 
   List<Map<String, dynamic>> markers = [];
 
@@ -171,8 +174,7 @@ class _MapPageState extends State<MapPage> {
                           },
                           onCall: () => _launchPhone(_markerPhone(markerData)),
                           onWebsite: () => _openWebsite(markerData),
-                          onChat:
-                              isReport
+                          onChat: isReport
                                   ? () => _startChatWithReporter(markerData)
                                   : null,
                         ),
@@ -276,8 +278,7 @@ class _MapPageState extends State<MapPage> {
   }
 
   String? _markerPhone(Map<String, dynamic> markerData) {
-    final value =
-        markerData['type'] == 'report'
+    final value = markerData['type'] == 'report'
             ? markerData['reporterPhone']
             : markerData['phone'];
     final phone = value?.toString().trim();
@@ -332,14 +333,12 @@ class _MapPageState extends State<MapPage> {
       return;
     }
 
-    final snapshot =
-        await FIRESTORE
+    final snapshot = await FIRESTORE
             .collection('conversations')
             .where('participantIds', arrayContains: profile.id)
             .get();
 
-    final conversations =
-        snapshot.docs.where((doc) {
+    final conversations = snapshot.docs.where((doc) {
           final data = doc.data();
           final participantIds = data['participantIds'] as List? ?? [];
           return participantIds.contains(reporterUserId) &&
@@ -352,16 +351,17 @@ class _MapPageState extends State<MapPage> {
         (markerData['actualReporterName'] ?? markerData['reporterName'])
             ?.toString()
             .trim();
-    final requesterDisplayName =
-        profile.shareProfile ? profile.name : 'Anonymous User';
-    final reporterDisplayName =
-        isAnonymous
+    final requesterDisplayName = profile.shareProfile
+        ? profile.name
+        : 'Anonymous User';
+    final reporterDisplayName = isAnonymous
             ? 'Anonymous Reporter'
             : (reporterName == null || reporterName.isEmpty
                 ? 'Reporter'
                 : reporterName);
-    final existingData =
-        conversations.isNotEmpty ? conversations.first.data() : null;
+    final existingData = conversations.isNotEmpty
+        ? conversations.first.data()
+        : null;
 
     // Real names are never stored for parties that chose privacy; the
     // conversation doc is readable by the other participant.
@@ -385,11 +385,8 @@ class _MapPageState extends State<MapPage> {
         ),
     };
 
-    final chatID =
-        conversations.isEmpty
-            ? (await FIRESTORE
-                .collection('conversations')
-                .add(conversationData)).id
+    final chatID = conversations.isEmpty
+        ? (await FIRESTORE.collection('conversations').add(conversationData)).id
             : conversations.first.id;
 
     if (conversations.isNotEmpty) {
@@ -466,69 +463,66 @@ class _MapPageState extends State<MapPage> {
 
   @override
   Widget build(BuildContext context) {
+    final initialMapTarget =
+        currentPosition ?? _firstMarkerPosition() ?? _worldFallbackCenter;
+
     return Scaffold(
       body: SafeArea(
         bottom: false,
         child: Stack(
           children: [
             Positioned.fill(
-              child:
-                  currentPosition == null
-                      ? const Center(
-                        child: CircularProgressIndicator(
-                          color: WoofCareColors.buttonColor,
+              child: GoogleMap(
+                style: WoofCareMapStyle.light,
+                gestureRecognizers: {
+                  Factory<OneSequenceGestureRecognizer>(
+                    () => EagerGestureRecognizer(),
+                  ),
+                },
+                myLocationButtonEnabled: _locationAccessGranted,
+                myLocationEnabled: _locationAccessGranted,
+                zoomControlsEnabled: true,
+                mapToolbarEnabled: false,
+                onMapCreated: (controller) {
+                  _mapController = controller;
+                  unawaited(_focusAvailableViewport());
+                },
+                compassEnabled: true,
+                scrollGesturesEnabled: true,
+                zoomGesturesEnabled: true,
+                rotateGesturesEnabled: true,
+                tiltGesturesEnabled: true,
+                padding: const EdgeInsets.only(top: 132, bottom: 108),
+                mapType: MapType.normal,
+                initialCameraPosition: CameraPosition(
+                  target: initialMapTarget,
+                  zoom: currentPosition == null ? 2.5 : 13,
+                ),
+                markers: {
+                  if (_locationAccessGranted && currentPosition != null)
+                    Marker(
+                      markerId: const MarkerId("currentPos"),
+                      icon: currentMarker,
+                      position: currentPosition!,
+                    ),
+                  for (final i in _visibleMarkerIndexes())
+                    if (_shouldRenderMapMarker(markers[i]))
+                      Marker(
+                        markerId: MarkerId(markers[i]["id"]),
+                        icon: markers[i]["selected"]
+                            ? markers[i]["selectIcon"]
+                            : markers[i]["icon"],
+                        position: LatLng(
+                          markers[i]["latitude"],
+                          markers[i]["longitude"],
                         ),
-                      )
-                      : GoogleMap(
-                        style: WoofCareMapStyle.light,
-                        gestureRecognizers: {
-                          Factory<OneSequenceGestureRecognizer>(
-                            () => EagerGestureRecognizer(),
-                          ),
+                        onTap: () {
+                          _handleMarkerTap(i);
                         },
-                        myLocationButtonEnabled: true,
-                        myLocationEnabled: true,
-                        zoomControlsEnabled: true,
-                        mapToolbarEnabled: false,
-                        onMapCreated: (controller) {
-                          _mapController = controller;
-                        },
-                        compassEnabled: true,
-                        scrollGesturesEnabled: true,
-                        zoomGesturesEnabled: true,
-                        rotateGesturesEnabled: true,
-                        tiltGesturesEnabled: true,
-                        padding: const EdgeInsets.only(top: 132, bottom: 108),
-                        mapType: MapType.normal,
-                        initialCameraPosition: CameraPosition(
-                          target: currentPosition!,
-                          zoom: 13,
-                        ),
-                        markers: {
-                          Marker(
-                            markerId: MarkerId("currentPos"),
-                            icon: currentMarker,
-                            position: currentPosition!,
-                          ),
-                          for (final i in _visibleMarkerIndexes())
-                            if (_shouldRenderMapMarker(markers[i]))
-                              Marker(
-                                markerId: MarkerId(markers[i]["id"]),
-                                icon:
-                                    markers[i]["selected"]
-                                        ? markers[i]["selectIcon"]
-                                        : markers[i]["icon"],
-                                position: LatLng(
-                                  markers[i]["latitude"],
-                                  markers[i]["longitude"],
-                                ),
-                                onTap: () {
-                                  _handleMarkerTap(i);
-                                },
-                              ),
-                        },
-                        circles: _reportPrivacyCircles(),
                       ),
+                },
+                circles: _reportPrivacyCircles(),
+              ),
             ),
             Positioned(
               top: 14,
@@ -549,8 +543,7 @@ class _MapPageState extends State<MapPage> {
               right: 0,
               child: _MapFilterBar(
                 selectedType: selectedMarkerType,
-                onSelected:
-                    (type) => setState(() {
+                onSelected: (type) => setState(() {
                       selectedMarkerType = type;
                     }),
               ),
@@ -593,8 +586,7 @@ class _MapPageState extends State<MapPage> {
       if (latitude is! num || longitude is! num) continue;
 
       final radius = marker['locationPrivacyRadiusMeters'];
-      final radiusMeters =
-          radius is num
+      final radiusMeters = radius is num
               ? radius.toDouble()
               : reportLocationFuzzRadiusMeters.toDouble();
       final center = LatLng(latitude.toDouble(), longitude.toDouble());
@@ -619,41 +611,7 @@ class _MapPageState extends State<MapPage> {
   }
 
   Future<void> fetchLocationUpdates(BuildContext context) async {
-    bool serviceEnabled;
-    PermissionStatus permissionGranted;
-
-    serviceEnabled = await locationController.serviceEnabled();
-    if (!serviceEnabled) {
-      serviceEnabled = await locationController.requestService();
-      if (!serviceEnabled) {
-        return;
-      }
-    }
-
-    permissionGranted = await locationController.hasPermission();
-    if (permissionGranted == PermissionStatus.denied) {
-      permissionGranted = await locationController.requestPermission();
-      if (permissionGranted != PermissionStatus.granted) {
-        // What if the permission status is grantedLimited?
-        return;
-      }
-    }
-
-    await _locationSubscription?.cancel();
-    _locationSubscription = locationController.onLocationChanged.listen((
-      currentLocation,
-    ) {
-      if (currentLocation.latitude != null &&
-          currentLocation.longitude != null &&
-          context.mounted) {
-        setState(() {
-          currentPosition = LatLng(
-            currentLocation.latitude!,
-            currentLocation.longitude!,
-          );
-        });
-      }
-    });
+    await _fetchLocation(context);
   }
 
   void _reportDogButtonPressed() {
@@ -837,7 +795,9 @@ class _MapPageState extends State<MapPage> {
     } on FirebaseException catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Unable to load organizations: ${error.code}')),
+          SnackBar(
+            content: Text('Unable to load organizations: ${error.code}'),
+          ),
         );
       }
       return [];
@@ -861,14 +821,14 @@ class _MapPageState extends State<MapPage> {
       final longitude = data['longitude'];
       if (latitude is! num || longitude is! num) continue;
 
-      final organizationType =
-          (data['organizationType'] ?? data['role'])?.toString();
+      final organizationType = (data['organizationType'] ?? data['role'])
+          ?.toString();
       final icons = _markerIconsForType(organizationType);
-      final address = [
-        data['addressStreet1'],
-        data['addressStreet2'],
-        data['addressCity'],
-      ].map((part) => part?.toString().trim() ?? '').where((p) => p.isNotEmpty).join(', ');
+      final address =
+          [data['addressStreet1'], data['addressStreet2'], data['addressCity']]
+              .map((part) => part?.toString().trim() ?? '')
+              .where((p) => p.isNotEmpty)
+              .join(', ');
 
       orgMarkers.add({
         'id': doc.id,
@@ -943,8 +903,7 @@ class _MapPageState extends State<MapPage> {
     for (QueryDocumentSnapshot doc in reportDocs) {
       final data = doc.data() as Map<String, dynamic>?;
 
-      final publicLocation =
-          data == null
+      final publicLocation = data == null
               ? null
               : ReportLocationService.publicDisplayLocation(data);
 
@@ -953,8 +912,9 @@ class _MapPageState extends State<MapPage> {
         final shareReporterPhone =
             !isAnonymous && data['shareReporterPhone'] == true;
         String? reporterName = data['reporterName']?.toString();
-        String? reporterPhone =
-            shareReporterPhone ? data['reporterPhone']?.toString() : null;
+        String? reporterPhone = shareReporterPhone
+            ? data['reporterPhone']?.toString()
+            : null;
         String? reporterEmail = data['reporterEmail']?.toString();
         final reporterId = data['userID']?.toString();
         final exactLocation =
@@ -977,8 +937,10 @@ class _MapPageState extends State<MapPage> {
             reporterId != null &&
             reporterId.isNotEmpty) {
           try {
-            final userDoc =
-                await FIRESTORE.collection("users").doc(reporterId).get();
+            final userDoc = await FIRESTORE
+                .collection("users")
+                .doc(reporterId)
+                .get();
             if (userDoc.exists) {
               final userData = userDoc.data();
               reporterName ??= userData?['name']?.toString();
@@ -996,12 +958,10 @@ class _MapPageState extends State<MapPage> {
           'id': doc.id,
           'latitude': displayLatitude,
           'longitude': displayLongitude,
-          'fuzzedLatitude':
-              data['fuzzedLatitude'] is num
+          'fuzzedLatitude': data['fuzzedLatitude'] is num
                   ? (data['fuzzedLatitude'] as num).toDouble()
                   : publicLocation.latitude,
-          'fuzzedLongitude':
-              data['fuzzedLongitude'] is num
+          'fuzzedLongitude': data['fuzzedLongitude'] is num
                   ? (data['fuzzedLongitude'] as num).toDouble()
                   : publicLocation.longitude,
           'exactLocationVisible': exactLocation != null,
@@ -1042,27 +1002,30 @@ class _MapPageState extends State<MapPage> {
       markers = loadedMarkers;
     });
 
-    await _focusPendingReport();
+    final focusedPendingReport = await _focusPendingReport();
+    if (!focusedPendingReport) {
+      await _focusAvailableViewport();
+    }
   }
 
   /// Consumes a report deep link stashed by a notification tap: centers the
   /// camera on the matching report marker and opens its details sheet. Does
   /// nothing when there is no pending id or the report is gone.
-  Future<void> _focusPendingReport() async {
+  Future<bool> _focusPendingReport() async {
     final reportId = NotificationService.takePendingReportId();
-    if (reportId == null || reportId.isEmpty) return;
+    if (reportId == null || reportId.isEmpty) return false;
 
     final index = markers.indexWhere(
       (marker) => marker['type'] == 'report' && marker['id'] == reportId,
     );
-    if (index == -1) return;
+    if (index == -1) return false;
 
-    // The map controller only exists once the device location resolves and
-    // the GoogleMap widget builds; wait briefly rather than dropping the tap.
+    // The map controller can trail the Firestore response by a few frames.
+    // Wait briefly rather than dropping the notification tap.
     for (var i = 0; i < 20 && _mapController == null && mounted; i++) {
       await Future.delayed(const Duration(milliseconds: 250));
     }
-    if (!mounted || _mapController == null) return;
+    if (!mounted || _mapController == null) return false;
 
     final marker = markers[index];
     await _mapController?.animateCamera(
@@ -1072,8 +1035,9 @@ class _MapPageState extends State<MapPage> {
       ),
     );
 
-    if (!mounted) return;
+    if (!mounted) return false;
     await _handleMarkerTap(index);
+    return true;
   }
 
   Future<void> _handleMarkerTap(int index) async {
@@ -1088,34 +1052,86 @@ class _MapPageState extends State<MapPage> {
   }
 
   Future<void> _fetchLocation(BuildContext context) async {
-    bool serviceEnabled;
-    PermissionStatus permissionGranted;
-
-    serviceEnabled = await locationController.serviceEnabled();
-    if (!serviceEnabled) {
-      serviceEnabled = await locationController.requestService();
+    try {
+      var serviceEnabled = await locationController.serviceEnabled();
       if (!serviceEnabled) {
+        serviceEnabled = await locationController.requestService();
+        if (!serviceEnabled) {
+          _setLocationAccessGranted(false);
+          return;
+        }
+      }
+
+      var permission = await locationController.hasPermission();
+      if (permission == PermissionStatus.denied) {
+        permission = await locationController.requestPermission();
+      }
+      if (!_isUsableLocationPermission(permission)) {
+        _setLocationAccessGranted(false);
         return;
       }
-    }
 
-    permissionGranted = await locationController.hasPermission();
-    if (permissionGranted == PermissionStatus.denied) {
-      permissionGranted = await locationController.requestPermission();
-      if (permissionGranted != PermissionStatus.granted) {
-        return;
+      _setLocationAccessGranted(true);
+
+      final initialLocation = await locationController.getLocation();
+      await _updateCurrentPosition(initialLocation, moveCamera: true);
+
+      await _locationSubscription?.cancel();
+      _locationSubscription = locationController.onLocationChanged.listen(
+        (currentLocation) {
+          _updateCurrentPosition(currentLocation, moveCamera: false);
+        },
+        onError: (Object error, StackTrace stackTrace) {
+          debugPrint('Location updates stopped: $error');
+          _setLocationAccessGranted(false);
+        },
+      );
+    } catch (error, stackTrace) {
+      debugPrint('Unable to resolve the current location: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      _setLocationAccessGranted(false);
+    }
+  }
+
+  bool _isUsableLocationPermission(PermissionStatus permission) {
+    return permission == PermissionStatus.granted ||
+        permission == PermissionStatus.grantedLimited;
+  }
+
+  void _setLocationAccessGranted(bool granted) {
+    if (!mounted || _locationAccessGranted == granted) return;
+    setState(() => _locationAccessGranted = granted);
+  }
+
+  LatLng? _firstMarkerPosition() {
+    for (final marker in markers) {
+      final latitude = marker['latitude'];
+      final longitude = marker['longitude'];
+      if (latitude is num && longitude is num) {
+        return LatLng(latitude.toDouble(), longitude.toDouble());
       }
     }
+    return null;
+  }
 
-    final initialLocation = await locationController.getLocation();
-    await _updateCurrentPosition(initialLocation, moveCamera: false);
+  Future<void> _focusAvailableViewport() async {
+    final controller = _mapController;
+    if (controller == null || !mounted) return;
 
-    await _locationSubscription?.cancel();
-    _locationSubscription = locationController.onLocationChanged.listen((
-      currentLocation,
-    ) {
-      _updateCurrentPosition(currentLocation, moveCamera: false);
-    });
+    final currentLocation = currentPosition;
+    if (currentLocation != null) {
+      await controller.animateCamera(
+        CameraUpdate.newLatLngZoom(currentLocation, 13),
+      );
+      return;
+    }
+
+    final markerPosition = _firstMarkerPosition();
+    if (markerPosition != null) {
+      await controller.animateCamera(
+        CameraUpdate.newLatLngZoom(markerPosition, 11),
+      );
+    }
   }
 
   Future<void> _updateCurrentPosition(
@@ -1152,8 +1168,7 @@ class _MarkerPreviewImage extends StatelessWidget {
       child: SizedBox(
         width: 96,
         height: 96,
-        child:
-            image == null
+        child: image == null
                 ? Image.asset(
                   'assets/images/placeholders/placeholder.jpeg',
                   fit: BoxFit.cover,
@@ -1161,8 +1176,7 @@ class _MarkerPreviewImage extends StatelessWidget {
                 : Image.network(
                   image,
                   fit: BoxFit.cover,
-                  errorBuilder:
-                      (context, error, stackTrace) => Image.asset(
+                errorBuilder: (context, error, stackTrace) => Image.asset(
                         'assets/images/placeholders/placeholder.jpeg',
                         fit: BoxFit.cover,
                       ),
@@ -1201,16 +1215,13 @@ class _MarkerMeta extends StatelessWidget {
               color: WoofCareColors.mutedText,
             ),
           _InfoPill(
-            icon:
-                markerData['exactLocationVisible'] == true
+            icon: markerData['exactLocationVisible'] == true
                     ? Icons.location_on_rounded
                     : Icons.blur_on_rounded,
-            label:
-                markerData['exactLocationVisible'] == true
+            label: markerData['exactLocationVisible'] == true
                     ? 'Exact pin'
                     : 'Approximate pin',
-            color:
-                markerData['exactLocationVisible'] == true
+            color: markerData['exactLocationVisible'] == true
                     ? WoofCareColors.buttonColor
                     : WoofCareColors.mutedText,
           ),
@@ -1465,16 +1476,14 @@ class _MarkerImageStrip extends StatelessWidget {
         physics: const BouncingScrollPhysics(),
         itemCount: images.length,
         separatorBuilder: (context, index) => const SizedBox(width: 10),
-        itemBuilder:
-            (context, index) => ClipRRect(
+        itemBuilder: (context, index) => ClipRRect(
               borderRadius: BorderRadius.circular(14),
               child: Image.network(
                 images[index],
                 width: 132,
                 height: 108,
                 fit: BoxFit.cover,
-                errorBuilder:
-                    (context, error, stackTrace) => Container(
+            errorBuilder: (context, error, stackTrace) => Container(
                       width: 132,
                       height: 108,
                       color: WoofCareColors.textBoxColor,
@@ -1663,8 +1672,7 @@ class _ExactLocationAccessPanelState extends State<_ExactLocationAccessPanel> {
                       ),
                     ),
                     onPressed: widget.canAccept && !_accepting ? _accept : null,
-                    icon:
-                        _accepting
+                    icon: _accepting
                             ? const SizedBox(
                               width: 18,
                               height: 18,

@@ -38,36 +38,45 @@ class _ReportPageState extends State<ReportPage> {
   bool anonymousReport = false;
   bool shareReporterPhone = false;
 
-  void submitReport() async {
+  Future<void> submitReport() async {
     double? latitude;
     double? longitude;
 
     // if (useCurrentLocation) {
-    Location location = Location();
+    final location = Location();
 
-    bool serviceEnabled;
-    PermissionStatus permissionGranted;
-    LocationData locationData;
-
-    serviceEnabled = await location.serviceEnabled();
-    if (!serviceEnabled) {
-      serviceEnabled = await location.requestService();
+    try {
+      var serviceEnabled = await location.serviceEnabled();
       if (!serviceEnabled) {
+        serviceEnabled = await location.requestService();
+        if (!serviceEnabled) {
+          _showLocationError(
+            'Turn on Location Services to attach this report to the map.',
+          );
+          return;
+        }
+      }
+
+      var permission = await location.hasPermission();
+      if (permission == PermissionStatus.denied) {
+        permission = await location.requestPermission();
+      }
+      if (!_isUsableLocationPermission(permission)) {
+        _showLocationError(
+          'Location access is required to submit a map-based report.',
+        );
         return;
       }
-    }
 
-    permissionGranted = await location.hasPermission();
-    if (permissionGranted == PermissionStatus.denied) {
-      permissionGranted = await location.requestPermission();
-      if (permissionGranted != PermissionStatus.granted) {
-        return;
-      }
+      final locationData = await location.getLocation();
+      latitude = locationData.latitude;
+      longitude = locationData.longitude;
+    } catch (_) {
+      _showLocationError(
+        'Unable to resolve your location. Check permission and try again.',
+      );
+      return;
     }
-
-    locationData = await location.getLocation();
-    latitude = locationData.latitude;
-    longitude = locationData.longitude;
     // }
 
     if (latitude == null || longitude == null) {
@@ -98,8 +107,9 @@ class _ReportPageState extends State<ReportPage> {
       'userID': profile.id,
       'reporterName': anonymousReport ? null : profile.name,
       'shareReporterPhone': shareReporterPhone,
-      'reporterPhone':
-          !anonymousReport && shareReporterPhone ? profile.phone : null,
+      'reporterPhone': !anonymousReport && shareReporterPhone
+          ? profile.phone
+          : null,
       'reporterEmail': anonymousReport ? null : profile.email,
       'title': _reportTitleController.text,
       'description': _dogDescriptionController.text,
@@ -146,6 +156,21 @@ class _ReportPageState extends State<ReportPage> {
         );
       }
     }
+  }
+
+  bool _isUsableLocationPermission(PermissionStatus permission) {
+    return permission == PermissionStatus.granted ||
+        permission == PermissionStatus.grantedLimited;
+  }
+
+  void _showLocationError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: WoofCareColors.errorMessageColor,
+      ),
+    );
   }
 
   @override
@@ -327,8 +352,7 @@ class _ReportPageState extends State<ReportPage> {
           Icons.arrow_drop_down,
           color: WoofCareColors.primaryTextAndIcons,
         ),
-        items:
-            urgencyList.map((String value) {
+        items: urgencyList.map((String value) {
               return DropdownMenuItem<String>(
                 value: value,
                 child: Text(

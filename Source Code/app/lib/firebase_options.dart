@@ -17,19 +17,13 @@ import 'package:flutter/foundation.dart'
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {
-      throw UnsupportedError(
-        "DefaultFirebaseOptions have not been configured for web - "
-        "you can reconfigure this by running the FlutterFire CLI again.",
-      );
+      return web;
     }
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
         return android;
       case TargetPlatform.iOS:
-        throw UnsupportedError(
-          "DefaultFirebaseOptions have not been configured for ios - "
-          "you can reconfigure this by running the FlutterFire CLI again.",
-        );
+        return ios;
       case TargetPlatform.macOS:
         throw UnsupportedError(
           "DefaultFirebaseOptions have not been configured for macos - "
@@ -52,11 +46,30 @@ class DefaultFirebaseOptions {
     }
   }
 
+  static const FirebaseOptions web = FirebaseOptions(
+    apiKey: 'AIzaSyCvzQDGbU8ndDGJ3mGCeWA0mSsCNRhsbt0',
+    appId: '1:506976961145:web:551d2afd7dc9f0e8240aa8',
+    messagingSenderId: '506976961145',
+    projectId: 'woofcare-a9fac',
+    authDomain: 'woofcare-a9fac.firebaseapp.com',
+    storageBucket: 'woofcare-a9fac.firebasestorage.app',
+    measurementId: 'G-FJDV4K81CK',
+  );
+
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyDHdWdQorxOsL7c_jmxHelaKXCveKnH4d0',
     appId: '1:506976961145:android:b19e9a2b082f7b95240aa8',
     messagingSenderId: '506976961145',
     projectId: 'woofcare-a9fac',
     storageBucket: 'woofcare-a9fac.firebasestorage.app',
+  );
+
+  static const FirebaseOptions ios = FirebaseOptions(
+    apiKey: 'AIzaSyCwsHu9KMZFTj3-0tHW79d2fzmNgDRbBR0',
+    appId: '1:506976961145:ios:9c902046c4a17cb8240aa8',
+    messagingSenderId: '506976961145',
+    projectId: 'woofcare-a9fac',
+    storageBucket: 'woofcare-a9fac.firebasestorage.app',
+    iosBundleId: 'com.epics.woofcare',
   );
 }

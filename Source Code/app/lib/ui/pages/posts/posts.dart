@@ -5,6 +5,7 @@ import 'package:woofcare/tools/functions.dart';
 import 'package:woofcare/ui/pages/posts/posting.dart';
 import 'package:woofcare/ui/widgets/app_chrome.dart';
 import 'package:woofcare/ui/widgets/post_widget.dart';
+import 'package:woofcare/ui/widgets/responsive.dart';
 
 class SocialMediaFeed extends StatefulWidget {
   const SocialMediaFeed({super.key});
@@ -28,46 +29,52 @@ class _SocialMediaFeedState extends State<SocialMediaFeed> {
       ),
       backgroundColor: WoofCareColors.secondaryBackground,
       builder: (context) {
-        return DraggableScrollableSheet(
-          initialChildSize: 0.95,
-          minChildSize: 0.95,
-          maxChildSize: 0.95,
-          builder: (sheetContext, scrollController) {
-            return Container(
-              // Container to store the drag handle and the ReportingPage
-              decoration: const BoxDecoration(
-                color: WoofCareColors.secondaryBackground,
-              ),
+        return WoofCareSheetSurface(
+          maxWidth: 760,
+          child: DraggableScrollableSheet(
+            initialChildSize: 0.95,
+            minChildSize: 0.95,
+            maxChildSize: 0.95,
+            builder: (sheetContext, scrollController) {
+              return Container(
+                // Container to store the drag handle and the ReportingPage
+                decoration: const BoxDecoration(
+                  color: WoofCareColors.secondaryBackground,
+                ),
 
-              // Children of the container => drag handle and the ReportingPage
-              child: Column(
-                children: [
-                  const SizedBox(height: 12),
+                // Children of the container => drag handle and the ReportingPage
+                child: Column(
+                  children: [
+                    const SizedBox(height: 12),
 
-                  // The ReportingPage (uses Expanded to take up the rest of the space)
-                  Expanded(
-                    child: SafeArea(
-                      top: false,
-                      left: false,
-                      right: false,
-                      child: SingleChildScrollView(
-                        keyboardDismissBehavior:
-                            ScrollViewKeyboardDismissBehavior.onDrag,
-                        controller: scrollController,
-                        padding: EdgeInsets.only(
-                          left: 25,
-                          right: 25,
-                          top: 10,
-                          bottom: MediaQuery.viewInsetsOf(context).bottom + 30,
+                    // The ReportingPage (uses Expanded to take up the rest of the space)
+                    Expanded(
+                      child: SafeArea(
+                        top: false,
+                        left: false,
+                        right: false,
+                        child: SingleChildScrollView(
+                          keyboardDismissBehavior:
+                              ScrollViewKeyboardDismissBehavior.onDrag,
+                          controller: scrollController,
+                          padding: EdgeInsets.only(
+                            left: 25,
+                            right: 25,
+                            top: 10,
+                            bottom:
+                                MediaQuery.viewInsetsOf(context).bottom + 30,
+                          ),
+                          child: PostingPage(
+                            scrollController: scrollController,
+                          ),
                         ),
-                        child: PostingPage(scrollController: scrollController),
                       ),
                     ),
-                  ),
-                ],
-              ),
-            );
-          },
+                  ],
+                ),
+              );
+            },
+          ),
         );
       },
     );
@@ -95,59 +102,74 @@ class _SocialMediaFeedState extends State<SocialMediaFeed> {
               ],
             ),
             Expanded(
-              child: StreamBuilder(
-                stream:
-                    FIRESTORE
-                        .collection("posts")
-                        .orderBy("timestamp", descending: true)
-                        .snapshots(),
+              child: WoofCareContentSurface(
+                maxWidth: 780,
+                child: StreamBuilder(
+                  stream: FIRESTORE
+                      .collection("posts")
+                      .orderBy("timestamp", descending: true)
+                      .snapshots(),
 
-                builder: (context, snapshot) {
-                  // If there is any data in the snapshot of the collection return a ListView.builder will all the posts (docs)
-                  if (snapshot.hasData) {
-                    if (snapshot.data!.docs.isEmpty) {
-                      return const WoofCareEmptyState(
-                        icon: Icons.forum_outlined,
-                        title: "No posts yet",
-                        message:
-                            "Share the first update with the WoofCare community.",
+                  builder: (context, snapshot) {
+                    // If there is any data in the snapshot of the collection return a ListView.builder will all the posts (docs)
+                    if (snapshot.hasData) {
+                      if (snapshot.data!.docs.isEmpty) {
+                        return const WoofCareEmptyState(
+                          icon: Icons.forum_outlined,
+                          title: "No posts yet",
+                          message:
+                              "Share the first update with the WoofCare community.",
+                        );
+                      }
+
+                      return ListView.builder(
+                        physics: const BouncingScrollPhysics(),
+                        padding: EdgeInsets.fromLTRB(
+                          MediaQuery.sizeOf(context).width >=
+                                  WoofCareBreakpoints.compact
+                              ? 24
+                              : 12,
+                          20,
+                          MediaQuery.sizeOf(context).width >=
+                                  WoofCareBreakpoints.compact
+                              ? 24
+                              : 12,
+                          124,
+                        ),
+                        itemCount: snapshot.data!.docs.length,
+                        itemBuilder: (context, index) {
+                          final post = snapshot.data!.docs[index].data();
+                          return Post(
+                            message: post['message']?.toString() ?? '',
+                            user: post['email'],
+                            time: formatDate(post['timestamp']),
+                            postId: snapshot.data!.docs[index].id,
+                            usersWhoLiked: List<String>.from(
+                              post['likes'] ?? [],
+                            ),
+                            images: List<String>.from(post['images'] ?? []),
+                            videoUrl: post['videoUrl']?.toString(),
+                            link: post['link']?.toString(),
+                          );
+                        },
+                      );
+                    } else if (snapshot.hasError) {
+                      return Center(
+                        child: Text(
+                          "Error: ${snapshot.error}",
+                          style: TextStyle(
+                            color: WoofCareColors.errorMessageColor,
+                          ),
+                        ),
                       );
                     }
-
-                    return ListView.builder(
-                      physics: const BouncingScrollPhysics(),
-                      padding: const EdgeInsets.fromLTRB(12, 14, 12, 124),
-                      itemCount: snapshot.data!.docs.length,
-                      itemBuilder: (context, index) {
-                        final post = snapshot.data!.docs[index].data();
-                        return Post(
-                          message: post['message']?.toString() ?? '',
-                          user: post['email'],
-                          time: formatDate(post['timestamp']),
-                          postId: snapshot.data!.docs[index].id,
-                          usersWhoLiked: List<String>.from(post['likes'] ?? []),
-                          images: List<String>.from(post['images'] ?? []),
-                          videoUrl: post['videoUrl']?.toString(),
-                          link: post['link']?.toString(),
-                        );
-                      },
-                    );
-                  } else if (snapshot.hasError) {
-                    return Center(
-                      child: Text(
-                        "Error: ${snapshot.error}",
-                        style: TextStyle(
-                          color: WoofCareColors.errorMessageColor,
-                        ),
+                    return const Center(
+                      child: CircularProgressIndicator(
+                        color: WoofCareColors.buttonColor,
                       ),
                     );
-                  }
-                  return const Center(
-                    child: CircularProgressIndicator(
-                      color: WoofCareColors.buttonColor,
-                    ),
-                  );
-                },
+                  },
+                ),
               ),
             ),
           ],

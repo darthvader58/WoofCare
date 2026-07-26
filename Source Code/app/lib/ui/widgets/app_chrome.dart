@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:woofcare/config/colors.dart';
+import 'package:woofcare/ui/widgets/responsive.dart';
 
 class WoofCareScreenHeader extends StatelessWidget {
   final String title;
@@ -31,7 +32,6 @@ class WoofCareScreenHeader extends StatelessWidget {
 
     return Container(
       constraints: BoxConstraints(minHeight: height),
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
       decoration: BoxDecoration(
         color: WoofCareColors.offWhite,
         border: Border(
@@ -47,85 +47,91 @@ class WoofCareScreenHeader extends StatelessWidget {
           ),
         ],
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
+      child: WoofCareContentSurface(
+        maxWidth: 1120,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              if (icon != null) ...[
-                Container(
-                  width: 38,
-                  height: 38,
-                  decoration: BoxDecoration(
-                    color: WoofCareColors.floatingActionIcons.withValues(
-                      alpha: 0.1,
-                    ),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: WoofCareColors.floatingActionIcons.withValues(
-                        alpha: 0.12,
-                      ),
-                    ),
-                  ),
-                  child: Icon(
-                    icon,
-                    color: WoofCareColors.floatingActionIcons,
-                    size: 22,
-                  ),
-                ),
-                const SizedBox(width: 14),
-              ],
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: WoofCareColors.primaryTextAndIcons,
-                        fontSize: 27,
-                        fontWeight: FontWeight.w800,
-                        height: 1.05,
-                      ),
-                    ),
-                    if (subtitle != null) ...[
-                      const SizedBox(height: 5),
-                      Text(
-                        subtitle!,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: WoofCareColors.mutedText.withValues(
-                            alpha: 0.86,
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  if (icon != null) ...[
+                    Container(
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        color: WoofCareColors.floatingActionIcons.withValues(
+                          alpha: 0.1,
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: WoofCareColors.floatingActionIcons.withValues(
+                            alpha: 0.12,
                           ),
-                          fontSize: 13,
-                          height: 1.2,
-                          fontWeight: FontWeight.w600,
                         ),
                       ),
-                    ],
+                      child: Icon(
+                        icon,
+                        color: WoofCareColors.floatingActionIcons,
+                        size: 22,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
                   ],
-                ),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: WoofCareColors.primaryTextAndIcons,
+                            fontSize: 27,
+                            fontWeight: FontWeight.w800,
+                            height: 1.05,
+                          ),
+                        ),
+                        if (subtitle != null) ...[
+                          const SizedBox(height: 5),
+                          Text(
+                            subtitle!,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: WoofCareColors.mutedText.withValues(
+                                alpha: 0.86,
+                              ),
+                              fontSize: 13,
+                              height: 1.2,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  if (actions.isNotEmpty) ...[
+                    const SizedBox(width: 10),
+                    Row(mainAxisSize: MainAxisSize.min, children: actions),
+                  ],
+                ],
               ),
-              if (actions.isNotEmpty) ...[
-                const SizedBox(width: 10),
-                Row(mainAxisSize: MainAxisSize.min, children: actions),
+              if (hasSearch) ...[
+                const SizedBox(height: 16),
+                WoofCareSearchField(
+                  controller: searchController!,
+                  hintText: searchHint!,
+                  onChanged: onSearchChanged,
+                ),
               ],
+              if (bottom != null) ...[const SizedBox(height: 12), bottom!],
             ],
           ),
-          if (hasSearch) ...[
-            const SizedBox(height: 16),
-            WoofCareSearchField(
-              controller: searchController!,
-              hintText: searchHint!,
-              onChanged: onSearchChanged,
-            ),
-          ],
-          if (bottom != null) ...[const SizedBox(height: 12), bottom!],
-        ],
+        ),
       ),
     );
   }
@@ -240,31 +246,28 @@ class WoofCareFilterPill extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 18),
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color:
-              selected
-                  ? WoofCareColors.buttonColor
-                  : WoofCareColors.backgroundElementColor,
+          color: selected
+              ? WoofCareColors.buttonColor
+              : WoofCareColors.backgroundElementColor,
           borderRadius: BorderRadius.circular(18),
-          boxShadow:
-              selected
-                  ? [
-                    BoxShadow(
-                      color: WoofCareColors.buttonColor.withValues(alpha: 0.22),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ]
-                  : null,
+          boxShadow: selected
+              ? [
+                  BoxShadow(
+                    color: WoofCareColors.buttonColor.withValues(alpha: 0.22),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ]
+              : null,
         ),
         child: Text(
           label,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
-            color:
-                selected
-                    ? WoofCareColors.offWhite
-                    : WoofCareColors.primaryTextAndIcons,
+            color: selected
+                ? WoofCareColors.offWhite
+                : WoofCareColors.primaryTextAndIcons,
             fontSize: 12,
             fontWeight: FontWeight.w700,
           ),
