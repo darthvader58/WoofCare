@@ -2,7 +2,10 @@
 
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { filterNearbyOrgTokens } = require('../lib/filter');
+const {
+  filterNearbyOrgTokens,
+  isStaleMessagingTokenErrorCode,
+} = require('../lib/filter');
 
 // Center: New Delhi. ~4.9km north is in range of 5000m; ~11km north is not.
 const CENTER = { centerLat: 28.6139, centerLng: 77.209 };
@@ -75,4 +78,25 @@ test('unverified in-range org is still included (beta decision, see TODO)', () =
     { id: 'org1', verified: false, locationVisibility: 'public', latitude: NEAR_LAT, longitude: 77.209, fcmTokens: ['t1'] },
   ]);
   assert.strictEqual(result.get('t1'), 'org1');
+});
+
+test('both permanent FCM registration token errors are stale', () => {
+  assert.strictEqual(
+    isStaleMessagingTokenErrorCode(
+      'messaging/registration-token-not-registered',
+    ),
+    true,
+  );
+  assert.strictEqual(
+    isStaleMessagingTokenErrorCode('messaging/invalid-registration-token'),
+    true,
+  );
+});
+
+test('transient FCM errors do not remove a token', () => {
+  assert.strictEqual(
+    isStaleMessagingTokenErrorCode('messaging/internal-error'),
+    false,
+  );
+  assert.strictEqual(isStaleMessagingTokenErrorCode(undefined), false);
 });

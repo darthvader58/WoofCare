@@ -3,7 +3,10 @@
 const { onDocumentCreated } = require('firebase-functions/v2/firestore');
 const { logger } = require('firebase-functions');
 const admin = require('firebase-admin');
-const { filterNearbyOrgTokens } = require('./lib/filter');
+const {
+  filterNearbyOrgTokens,
+  isStaleMessagingTokenErrorCode,
+} = require('./lib/filter');
 const { chunk } = require('./lib/chunk');
 
 admin.initializeApp();
@@ -71,12 +74,30 @@ exports.notifyNearbyOrgsOnReportCreate = onDocumentCreated(
           tokens: tokenChunk,
           notification: { title, body },
           data: { reportId, type: 'new_report' },
-          android: { priority: isHighUrgency ? 'high' : 'normal' },
+          android: {
+            priority: isHighUrgency ? 'high' : 'normal',
+            notification: {
+              channelId: 'new_report_alerts',
+              sound: 'default',
+            },
+          },
+          apns: {
+            headers: {
+              'apns-priority': '10',
+              'apns-push-type': 'alert',
+            },
+            payload: {
+              aps: {
+                sound: 'default',
+                threadId: 'new_report_alerts',
+              },
+            },
+          },
         });
         sentCount += response.successCount;
 
         response.responses.forEach((r, idx) => {
-          if (!r.success && r.error?.code === 'messaging/registration-token-not-registered') {
+          if (!r.success && isStaleMessagingTokenErrorCode(r.error?.code)) {
             const staleToken = tokenChunk[idx];
             const orgId = tokenToOrg.get(staleToken);
             if (!staleByOrg.has(orgId)) staleByOrg.set(orgId, []);

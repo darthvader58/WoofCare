@@ -5,10 +5,20 @@
 *.swp
 .DS_Store
 .atom/
+.build/
 .buildlog/
 .history
 .svn/
+.swiftpm/
 migrate_working_dir/
+
+# Local environment and server-side credentials. Firebase client configuration
+# files are intentionally not ignored; their values are public app identifiers.
+.env
+.env.*
+!.env.example
+*firebase-adminsdk*.json
+*service-account*.json
 
 # IntelliJ related
 *.iml
