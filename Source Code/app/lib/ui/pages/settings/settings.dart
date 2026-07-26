@@ -4,6 +4,7 @@ import 'package:woofcare/services/auth.dart';
 import 'package:woofcare/ui/pages/export.dart';
 import 'package:woofcare/ui/widgets/custom_button.dart';
 import 'package:woofcare/ui/widgets/responsive.dart';
+import 'package:woofcare/ui/widgets/web_design_system.dart';
 
 import '/config/colors.dart' as app_colors;
 import '/ui/widgets/custom_textfield.dart';
@@ -32,19 +33,28 @@ class _SettingsPageState extends State<SettingsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final web = WoofCareWebDesign.enabled;
+
     return Scaffold(
-      backgroundColor: app_colors.WoofCareColors.secondaryBackground,
+      backgroundColor: web
+          ? WoofCareWebDesign.canvas
+          : app_colors.WoofCareColors.secondaryBackground,
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           "Settings",
           style: TextStyle(
-            color: app_colors.WoofCareColors.primaryTextAndIcons,
-            fontWeight: FontWeight.bold,
+            color: web
+                ? WoofCareWebDesign.text
+                : app_colors.WoofCareColors.primaryTextAndIcons,
+            fontWeight: web ? FontWeight.w600 : FontWeight.bold,
           ),
         ),
-        centerTitle: true,
-        backgroundColor: Colors.transparent,
+        centerTitle: !web,
+        backgroundColor: web ? WoofCareWebDesign.surface : Colors.transparent,
         elevation: 0,
+        shape: web
+            ? const Border(bottom: BorderSide(color: WoofCareWebDesign.border))
+            : null,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new, size: 20),
           color: app_colors.WoofCareColors.primaryTextAndIcons,
@@ -54,33 +64,35 @@ class _SettingsPageState extends State<SettingsPage> {
       body: Stack(
         children: [
           // Background images
-          Align(
-            alignment: Alignment.topLeft,
-            child: Opacity(
-              opacity: 0.6,
-              child: Image.asset(
-                "assets/images/patterns/BigPawPattern.png",
-                width: 200,
+          if (!web) ...[
+            Align(
+              alignment: Alignment.topLeft,
+              child: Opacity(
+                opacity: 0.6,
+                child: Image.asset(
+                  "assets/images/patterns/BigPawPattern.png",
+                  width: 200,
+                ),
               ),
             ),
-          ),
-          Align(
-            alignment: Alignment.bottomRight,
-            child: Opacity(
-              opacity: 0.6,
-              child: Image.asset(
-                "assets/images/patterns/SmallPawPattern.png",
-                width: 150,
+            Align(
+              alignment: Alignment.bottomRight,
+              child: Opacity(
+                opacity: 0.6,
+                child: Image.asset(
+                  "assets/images/patterns/SmallPawPattern.png",
+                  width: 150,
+                ),
               ),
             ),
-          ),
+          ],
 
           // Content
           Positioned.fill(
             child: WoofCareContentSurface(
-              maxWidth: 760,
+              maxWidth: web ? 900 : 760,
               child: SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
+                padding: EdgeInsets.all(web ? 32 : 20),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -233,11 +245,13 @@ class _SettingsPageState extends State<SettingsPage> {
                           await Auth.logOut(context);
                         },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFFF926C),
+                          backgroundColor: web
+                              ? WoofCareWebDesign.danger
+                              : const Color(0xFFFF926C),
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
+                            borderRadius: BorderRadius.circular(web ? 8 : 16),
                           ),
                           elevation: 2,
                         ),
@@ -262,32 +276,39 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Widget _buildSectionHeader(String title) {
+    final web = WoofCareWebDesign.enabled;
     return Padding(
       padding: const EdgeInsets.only(left: 8, bottom: 8),
       child: Text(
         title,
-        style: const TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.bold,
-          color: app_colors.WoofCareColors.dividerColor,
-          letterSpacing: 1.0,
+        style: TextStyle(
+          fontSize: web ? 12 : 14,
+          fontWeight: FontWeight.w700,
+          color: web
+              ? WoofCareWebDesign.textMuted
+              : app_colors.WoofCareColors.dividerColor,
+          letterSpacing: web ? 0.7 : 1,
         ),
       ),
     );
   }
 
   Widget _buildSectionCard(List<Widget> children) {
+    final web = WoofCareWebDesign.enabled;
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        color: WoofCareWebDesign.surface,
+        borderRadius: BorderRadius.circular(web ? 10 : 16),
+        border: web ? Border.all(color: WoofCareWebDesign.border) : null,
+        boxShadow: web
+            ? null
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
       ),
       child: Column(children: children),
     );
@@ -308,28 +329,35 @@ class _SettingsPageState extends State<SettingsPage> {
     required String title,
     required List<Widget> children,
   }) {
+    final web = WoofCareWebDesign.enabled;
     return Theme(
       data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
       child: ExpansionTile(
         leading: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: app_colors.WoofCareColors.primaryBackground.withValues(
-              alpha: 0.2,
-            ),
+            color: web
+                ? WoofCareWebDesign.primary.withValues(alpha: 0.08)
+                : app_colors.WoofCareColors.primaryBackground.withValues(
+                    alpha: 0.2,
+                  ),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(
             icon,
-            color: app_colors.WoofCareColors.primaryTextAndIcons,
+            color: web
+                ? WoofCareWebDesign.primary
+                : app_colors.WoofCareColors.primaryTextAndIcons,
           ),
         ),
         title: Text(
           title,
-          style: const TextStyle(
-            color: app_colors.WoofCareColors.primaryTextAndIcons,
+          style: TextStyle(
+            color: web
+                ? WoofCareWebDesign.text
+                : app_colors.WoofCareColors.primaryTextAndIcons,
             fontWeight: FontWeight.w500,
-            fontSize: 16,
+            fontSize: web ? 14 : 16,
           ),
         ),
         iconColor: app_colors.WoofCareColors.primaryTextAndIcons,
@@ -347,23 +375,33 @@ class _SettingsPageState extends State<SettingsPage> {
     required List<String> items,
     required Function(String?) onChanged,
   }) {
+    final web = WoofCareWebDesign.enabled;
     return ListTile(
       leading: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: app_colors.WoofCareColors.primaryBackground.withValues(
-            alpha: 0.2,
-          ),
+          color: web
+              ? WoofCareWebDesign.primary.withValues(alpha: 0.08)
+              : app_colors.WoofCareColors.primaryBackground.withValues(
+                  alpha: 0.2,
+                ),
           borderRadius: BorderRadius.circular(8),
         ),
-        child: Icon(icon, color: app_colors.WoofCareColors.primaryTextAndIcons),
+        child: Icon(
+          icon,
+          color: web
+              ? WoofCareWebDesign.primary
+              : app_colors.WoofCareColors.primaryTextAndIcons,
+        ),
       ),
       title: Text(
         title,
-        style: const TextStyle(
-          color: app_colors.WoofCareColors.primaryTextAndIcons,
+        style: TextStyle(
+          color: web
+              ? WoofCareWebDesign.text
+              : app_colors.WoofCareColors.primaryTextAndIcons,
           fontWeight: FontWeight.w500,
-          fontSize: 16,
+          fontSize: web ? 14 : 16,
         ),
       ),
       trailing: DropdownButtonHideUnderline(
@@ -388,24 +426,34 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Widget _buildLinkTile(IconData icon, String title, VoidCallback onTap) {
+    final web = WoofCareWebDesign.enabled;
     return ListTile(
       onTap: onTap,
       leading: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: app_colors.WoofCareColors.primaryBackground.withValues(
-            alpha: 0.2,
-          ),
+          color: web
+              ? WoofCareWebDesign.primary.withValues(alpha: 0.08)
+              : app_colors.WoofCareColors.primaryBackground.withValues(
+                  alpha: 0.2,
+                ),
           borderRadius: BorderRadius.circular(8),
         ),
-        child: Icon(icon, color: app_colors.WoofCareColors.primaryTextAndIcons),
+        child: Icon(
+          icon,
+          color: web
+              ? WoofCareWebDesign.primary
+              : app_colors.WoofCareColors.primaryTextAndIcons,
+        ),
       ),
       title: Text(
         title,
-        style: const TextStyle(
-          color: app_colors.WoofCareColors.primaryTextAndIcons,
+        style: TextStyle(
+          color: web
+              ? WoofCareWebDesign.text
+              : app_colors.WoofCareColors.primaryTextAndIcons,
           fontWeight: FontWeight.w500,
-          fontSize: 16,
+          fontSize: web ? 14 : 16,
         ),
       ),
       trailing: const Icon(

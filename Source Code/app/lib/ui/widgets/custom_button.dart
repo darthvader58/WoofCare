@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:woofcare/config/colors.dart';
+import 'package:woofcare/ui/widgets/web_design_system.dart';
 
 class CustomButton extends StatelessWidget {
   final String text;
@@ -36,6 +37,46 @@ class CustomButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (WoofCareWebDesign.enabled) {
+      final enabled = onTap != null;
+      final resolvedColor = color == const Color(0xFFA66E38)
+          ? WoofCareWebDesign.primary
+          : color;
+      final resolvedTextColor = fontColor == const Color(0xFFF7FFF7)
+          ? WoofCareWebDesign.onPrimary
+          : fontColor;
+
+      return Padding(
+        padding: EdgeInsets.symmetric(horizontal: margin),
+        child: SizedBox(
+          width: width ?? double.infinity,
+          height: height ?? 46,
+          child: ElevatedButton.icon(
+            onPressed: onTap,
+            style: ElevatedButton.styleFrom(
+              elevation: 0,
+              backgroundColor: resolvedColor,
+              foregroundColor: resolvedTextColor,
+              disabledBackgroundColor: WoofCareWebDesign.border,
+              disabledForegroundColor: WoofCareWebDesign.textMuted,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            icon: icon == null ? const SizedBox.shrink() : Icon(icon, size: 18),
+            label: Text(
+              text,
+              style: TextStyle(
+                fontSize: fontSize == 18 ? 14 : fontSize,
+                color: enabled ? resolvedTextColor : null,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     return Container(
       width: width,
       height: height,

@@ -8,6 +8,7 @@ import 'package:woofcare/config/colors.dart';
 import 'package:woofcare/services/post_media_service.dart';
 import 'package:woofcare/ui/widgets/responsive.dart';
 import 'package:woofcare/ui/widgets/video_preview_controller.dart';
+import 'package:woofcare/ui/widgets/web_design_system.dart';
 
 import '/config/constants.dart';
 import '/ui/widgets/custom_button.dart';
@@ -113,16 +114,24 @@ class _PostingPageState extends State<PostingPage> {
   }) async {
     await showModalBottomSheet<void>(
       context: context,
-      backgroundColor: WoofCareColors.secondaryBackground,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      backgroundColor: WoofCareWebDesign.enabled
+          ? Colors.transparent
+          : WoofCareColors.secondaryBackground,
+      shape: RoundedRectangleBorder(
+        borderRadius: WoofCareWebDesign.enabled
+            ? BorderRadius.circular(14)
+            : const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (sheetContext) {
         return WoofCareSheetSurface(
           maxWidth: 480,
           child: Material(
-            color: WoofCareColors.secondaryBackground,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            color: WoofCareWebDesign.enabled
+                ? WoofCareWebDesign.surface
+                : WoofCareColors.secondaryBackground,
+            borderRadius: WoofCareWebDesign.enabled
+                ? BorderRadius.circular(14)
+                : const BorderRadius.vertical(top: Radius.circular(24)),
             clipBehavior: Clip.antiAlias,
             child: SafeArea(
               child: Column(
@@ -247,9 +256,12 @@ class _PostingPageState extends State<PostingPage> {
 
   @override
   Widget build(BuildContext context) {
+    final web = WoofCareWebDesign.enabled;
     return Container(
-      decoration: const BoxDecoration(
-        color: WoofCareColors.secondaryBackground,
+      decoration: BoxDecoration(
+        color: web
+            ? WoofCareWebDesign.surface
+            : WoofCareColors.secondaryBackground,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -290,15 +302,25 @@ class _PostingPageState extends State<PostingPage> {
               spacing: 10.0,
               children: [
                 CircleAvatar(
-                  backgroundColor: const Color(0xFFCAB096),
+                  backgroundColor: web
+                      ? WoofCareWebDesign.primary.withValues(alpha: 0.1)
+                      : const Color(0xFFCAB096),
                   child: Icon(
-                    Icons.person,
-                    color: WoofCareColors.primaryTextAndIcons,
+                    Icons.person_outline_rounded,
+                    color: web
+                        ? WoofCareWebDesign.primary
+                        : WoofCareColors.primaryTextAndIcons,
                   ),
                 ),
                 Text(
                   "${AUTH.currentUser!.email}",
-                  style: TextStyle(color: WoofCareColors.primaryTextAndIcons),
+                  style: TextStyle(
+                    color: web
+                        ? WoofCareWebDesign.text
+                        : WoofCareColors.primaryTextAndIcons,
+                    fontSize: web ? 13 : null,
+                    fontWeight: web ? FontWeight.w500 : null,
+                  ),
                 ),
               ],
             ),

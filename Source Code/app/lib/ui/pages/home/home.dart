@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:woofcare/config/colors.dart';
 import 'package:woofcare/ui/pages/posts/posts.dart';
 import 'package:woofcare/ui/widgets/responsive.dart';
+import 'package:woofcare/ui/widgets/web_design_system.dart';
 import 'package:woofcare/ui/widgets/woofcare_nav_bar.dart';
 
 import '/ui/pages/export.dart';
@@ -36,15 +37,21 @@ class _HomePageState extends State<HomePage> {
             maxChildSize: 0.95,
             builder: (sheetContext, scrollController) {
               return Container(
-                decoration: const BoxDecoration(
-                  color: WoofCareColors.secondaryBackground,
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-                  border: Border(
-                    top: BorderSide(
-                      color: WoofCareColors.borderOutline,
-                      width: 1.5,
-                    ),
-                  ),
+                decoration: BoxDecoration(
+                  color: WoofCareWebDesign.enabled
+                      ? WoofCareWebDesign.surface
+                      : WoofCareColors.secondaryBackground,
+                  borderRadius: WoofCareWebDesign.enabled
+                      ? BorderRadius.circular(14)
+                      : const BorderRadius.vertical(top: Radius.circular(24)),
+                  border: WoofCareWebDesign.enabled
+                      ? Border.all(color: WoofCareWebDesign.border)
+                      : const Border(
+                          top: BorderSide(
+                            color: WoofCareColors.borderOutline,
+                            width: 1.5,
+                          ),
+                        ),
                 ),
                 child: Column(
                   children: [
@@ -106,8 +113,10 @@ class _HomePageState extends State<HomePage> {
         );
 
         return Scaffold(
-          backgroundColor: WoofCareColors.primaryBackground,
-          extendBody: !showRail,
+          backgroundColor: WoofCareWebDesign.enabled
+              ? WoofCareWebDesign.canvas
+              : WoofCareColors.primaryBackground,
+          extendBody: !showRail && !WoofCareWebDesign.enabled,
           body: showRail
               ? Row(
                   children: [

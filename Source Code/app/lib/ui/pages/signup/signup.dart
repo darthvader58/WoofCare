@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:woofcare/config/colors.dart';
+import 'package:woofcare/ui/widgets/web_design_system.dart';
 import 'package:woofcare/config/constants.dart';
 import 'package:woofcare/services/geocoding_service.dart';
 
@@ -62,7 +63,11 @@ class _SignUpPageState extends State<SignUpPage> {
   ];
 
   // Organizations expose their premises location publicly on the map.
-  final List<String> organizationTypes = ["NGO", "Vet Clinic", "Rescue Shelter"];
+  final List<String> organizationTypes = [
+    "NGO",
+    "Vet Clinic",
+    "Rescue Shelter",
+  ];
 
   String role = "";
   String organizationType = "";
@@ -290,8 +295,12 @@ class _SignUpPageState extends State<SignUpPage> {
 
   @override
   Widget build(BuildContext context) {
+    final web = WoofCareWebDesign.enabled;
+
     return Scaffold(
-      backgroundColor: WoofCareColors.primaryBackground,
+      backgroundColor: web
+          ? WoofCareWebDesign.canvas
+          : WoofCareColors.primaryBackground,
       resizeToAvoidBottomInset: true,
       body: AuthBackground(
         child: Center(
@@ -321,24 +330,41 @@ class _SignUpPageState extends State<SignUpPage> {
 
                     const SizedBox(height: 24),
 
-                    const Text(
+                    Text(
                       "Create Your Account",
                       style: TextStyle(
-                        color: WoofCareColors.primaryTextAndIcons,
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        decoration: TextDecoration.underline,
+                        color: web
+                            ? WoofCareWebDesign.text
+                            : WoofCareColors.primaryTextAndIcons,
+                        fontSize: web ? 25 : 24,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: web ? -0.4 : 0,
+                        decoration: web
+                            ? TextDecoration.none
+                            : TextDecoration.underline,
                       ),
                     ),
+
+                    if (web) ...[
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Create a secure account for community care coordination.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: WoofCareWebDesign.textMuted,
+                          fontSize: 14,
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
 
                     const SizedBox(height: 24),
 
                     AnimatedSwitcher(
                       duration: const Duration(milliseconds: 180),
-                      child:
-                          _accountType == AuthAccountType.organization
-                              ? _buildOrganizationFields()
-                              : _buildMemberFields(),
+                      child: _accountType == AuthAccountType.organization
+                          ? _buildOrganizationFields()
+                          : _buildMemberFields(),
                     ),
 
                     const SizedBox(height: 10),
@@ -364,10 +390,9 @@ class _SignUpPageState extends State<SignUpPage> {
 
                     CustomButton(
                       text: _isSubmitting ? "Signing Up..." : "Sign Up",
-                      icon:
-                          _accountType == AuthAccountType.organization
-                              ? Icons.business
-                              : Icons.person_add_alt_1,
+                      icon: _accountType == AuthAccountType.organization
+                          ? Icons.business
+                          : Icons.person_add_alt_1,
                       onTap: _isSubmitting ? null : signup,
                     ),
 
@@ -376,10 +401,12 @@ class _SignUpPageState extends State<SignUpPage> {
                     RichText(
                       text: TextSpan(
                         text: "Already have an account? ",
-                        style: const TextStyle(
-                          fontFamily: "ABeeZee",
-                          color: WoofCareColors.primaryTextAndIcons,
-                          fontSize: 12,
+                        style: TextStyle(
+                          fontFamily: web ? null : "ABeeZee",
+                          color: web
+                              ? WoofCareWebDesign.textMuted
+                              : WoofCareColors.primaryTextAndIcons,
+                          fontSize: web ? 13 : 12,
                         ),
                         children: <TextSpan>[
                           TextSpan(
@@ -387,13 +414,9 @@ class _SignUpPageState extends State<SignUpPage> {
                             style: theme.textTheme.bodyMedium!.copyWith(
                               color: WoofCareColors.interactibleText,
                             ),
-                            recognizer:
-                                TapGestureRecognizer()
-                                  ..onTap =
-                                      () => Navigator.pushNamed(
-                                        context,
-                                        "/login",
-                                      ),
+                            recognizer: TapGestureRecognizer()
+                              ..onTap = () =>
+                                  Navigator.pushNamed(context, "/login"),
                           ),
                         ],
                       ),

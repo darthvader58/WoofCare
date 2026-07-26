@@ -6,6 +6,7 @@ import 'package:woofcare/ui/widgets/contact_info.dart';
 import 'package:woofcare/ui/widgets/custom_button.dart';
 import 'package:woofcare/ui/widgets/editable_profilepic.dart';
 import 'package:woofcare/ui/widgets/responsive.dart';
+import 'package:woofcare/ui/widgets/web_design_system.dart';
 
 import '/config/colors.dart';
 import '/config/constants.dart';
@@ -132,19 +133,32 @@ class _ProfilePageState extends State<ProfilePage> {
 
   @override
   Widget build(BuildContext context) {
+    final web = WoofCareWebDesign.enabled;
+
     if (isLoading) {
-      return const Scaffold(
-        backgroundColor: WoofCareColors.primaryBackground,
-        body: Center(child: CircularProgressIndicator()),
+      return Scaffold(
+        backgroundColor: web
+            ? WoofCareWebDesign.canvas
+            : WoofCareColors.primaryBackground,
+        body: const Center(child: CircularProgressIndicator()),
       );
     }
 
     return Scaffold(
       resizeToAvoidBottomInset: true,
-      backgroundColor: WoofCareColors.primaryBackground,
+      backgroundColor: web
+          ? WoofCareWebDesign.canvas
+          : WoofCareColors.primaryBackground,
       appBar: AppBar(
-        backgroundColor: WoofCareColors.primaryBackground,
-        foregroundColor: WoofCareColors.primaryTextAndIcons,
+        backgroundColor: web
+            ? WoofCareWebDesign.surface
+            : WoofCareColors.primaryBackground,
+        foregroundColor: web
+            ? WoofCareWebDesign.text
+            : WoofCareColors.primaryTextAndIcons,
+        shape: web
+            ? const Border(bottom: BorderSide(color: WoofCareWebDesign.border))
+            : null,
         actions: isCurrentUser
             ? [
                 IconButton(
@@ -181,7 +195,7 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
       //Header
       body: WoofCareContentSurface(
-        maxWidth: 980,
+        maxWidth: web ? 1100 : 980,
         child: GestureDetector(
           onTap: () {
             FocusScope.of(context).unfocus(); // Dismiss keyboard on tap outside
@@ -337,11 +351,18 @@ class _ProfilePageState extends State<ProfilePage> {
               Expanded(
                 child: Container(
                   decoration: BoxDecoration(
-                    color: WoofCareColors.offWhite,
-                    borderRadius: BorderRadius.only(
-                      topLeft: Radius.circular(30),
-                      topRight: Radius.circular(30),
-                    ),
+                    color: web
+                        ? WoofCareWebDesign.surface
+                        : WoofCareColors.offWhite,
+                    borderRadius: web
+                        ? BorderRadius.circular(12)
+                        : const BorderRadius.only(
+                            topLeft: Radius.circular(30),
+                            topRight: Radius.circular(30),
+                          ),
+                    border: web
+                        ? Border.all(color: WoofCareWebDesign.border)
+                        : null,
                   ),
                   child: Column(
                     children: [

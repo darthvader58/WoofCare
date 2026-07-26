@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:woofcare/services/auth.dart';
+import 'package:woofcare/ui/widgets/web_design_system.dart';
 
 import '/config/colors.dart';
 import '/config/constants.dart';
@@ -75,8 +76,12 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
 
   @override
   Widget build(BuildContext context) {
+    final web = WoofCareWebDesign.enabled;
+
     return Scaffold(
-      backgroundColor: WoofCareColors.primaryBackground,
+      backgroundColor: web
+          ? WoofCareWebDesign.canvas
+          : WoofCareColors.primaryBackground,
       resizeToAvoidBottomInset: false,
       body: AuthBackground(
         child: Center(
@@ -103,13 +108,16 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                     ),
 
                     // Heading
-                    const Text(
+                    Text(
                       textAlign: TextAlign.center,
                       "Reset your password",
                       style: TextStyle(
-                        color: WoofCareColors.primaryTextAndIcons,
-                        fontSize: 25,
-                        fontWeight: FontWeight.bold,
+                        color: web
+                            ? WoofCareWebDesign.text
+                            : WoofCareColors.primaryTextAndIcons,
+                        fontSize: web ? 25 : 25,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: web ? -0.4 : 0,
                       ),
                     ),
 
@@ -122,11 +130,15 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                         vertical: 10.0,
                       ),
                       child: Text(
-                        "No worries, we got you! Just provide your email and we will send a link to help you reset your password",
+                        web
+                            ? 'Enter the email associated with your account. We will send you a secure reset link.'
+                            : "No worries, we got you! Just provide your email and we will send a link to help you reset your password",
                         textAlign: TextAlign.center,
                         style: theme.textTheme.bodyMedium!.copyWith(
-                          color: WoofCareColors.primaryTextAndIcons,
-                          fontSize: 13.5,
+                          color: web
+                              ? WoofCareWebDesign.textMuted
+                              : WoofCareColors.primaryTextAndIcons,
+                          fontSize: web ? 14 : 13.5,
                         ),
                       ),
                     ),
@@ -159,10 +171,9 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                           textAlign: TextAlign.center,
                           _notificationTextController.text,
                           style: TextStyle(
-                            color:
-                                _verified
-                                    ? WoofCareColors.primaryTextAndIcons
-                                    : WoofCareColors.errorMessageColor,
+                            color: _verified
+                                ? WoofCareColors.primaryTextAndIcons
+                                : WoofCareColors.errorMessageColor,
                             fontSize: 12,
                           ),
                         ),

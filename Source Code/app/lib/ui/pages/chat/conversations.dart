@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:woofcare/config/colors.dart';
 import 'package:woofcare/ui/widgets/app_chrome.dart';
 import 'package:woofcare/ui/widgets/responsive.dart';
+import 'package:woofcare/ui/widgets/web_design_system.dart';
 
 import '/config/constants.dart';
 import '/ui/widgets/custom_button.dart';
@@ -70,7 +71,9 @@ class _ConversationsPageState extends State<ConversationsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: WoofCareColors.primaryBackground,
+      backgroundColor: WoofCareWebDesign.enabled
+          ? WoofCareWebDesign.canvas
+          : WoofCareColors.primaryBackground,
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -88,9 +91,19 @@ class _ConversationsPageState extends State<ConversationsPage> {
                 IconButton.filledTonal(
                   tooltip: 'New conversation',
                   style: IconButton.styleFrom(
-                    backgroundColor: WoofCareColors.floatingActionIcons
-                        .withValues(alpha: 0.14),
-                    foregroundColor: WoofCareColors.floatingActionIcons,
+                    backgroundColor: WoofCareWebDesign.enabled
+                        ? WoofCareWebDesign.primary.withValues(alpha: 0.08)
+                        : WoofCareColors.floatingActionIcons.withValues(
+                            alpha: 0.14,
+                          ),
+                    foregroundColor: WoofCareWebDesign.enabled
+                        ? WoofCareWebDesign.primary
+                        : WoofCareColors.floatingActionIcons,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(
+                        WoofCareWebDesign.enabled ? 8 : 20,
+                      ),
+                    ),
                   ),
                   onPressed: _openSearchSheet,
                   icon: const Icon(Icons.add_rounded, size: 30),
@@ -103,7 +116,7 @@ class _ConversationsPageState extends State<ConversationsPage> {
             ),
             Expanded(
               child: WoofCareContentSurface(
-                maxWidth: 920,
+                maxWidth: WoofCareWebDesign.enabled ? 980 : 920,
                 child: StreamBuilder<QuerySnapshot>(
                   stream: FIRESTORE
                       .collection("conversations")
@@ -111,6 +124,13 @@ class _ConversationsPageState extends State<ConversationsPage> {
                       .snapshots(),
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
+                      if (WoofCareWebDesign.enabled) {
+                        return const WoofCareBackendState(
+                          status: WoofCareBackendStatus.connecting,
+                          collectionLabel: 'conversations',
+                        );
+                      }
+
                       return const Center(
                         child: CircularProgressIndicator(
                           color: WoofCareColors.buttonColor,
@@ -119,6 +139,14 @@ class _ConversationsPageState extends State<ConversationsPage> {
                     }
 
                     if (snapshot.hasError) {
+                      if (WoofCareWebDesign.enabled) {
+                        return WoofCareBackendState(
+                          status: WoofCareBackendStatus.failed,
+                          collectionLabel: 'conversations',
+                          error: snapshot.error,
+                        );
+                      }
+
                       return Center(
                         child: Text(
                           "Unable to load conversations",
@@ -130,22 +158,45 @@ class _ConversationsPageState extends State<ConversationsPage> {
                     }
 
                     final now = DateTime.now();
-                    final conversations = (snapshot.data?.docs ?? []).where((
+                    final activeConversations = (snapshot.data?.docs ?? [])
+                        .where(
+                          (conversation) =>
+                              !_isExpiredAnonymousChat(conversation, now),
+                        )
+                        .toList();
+                    final conversations = activeConversations.where((
                       conversation,
                     ) {
-                      if (_isExpiredAnonymousChat(conversation, now)) {
-                        return false;
-                      }
                       final participant = _participantName(conversation);
                       return _query.isEmpty ||
                           participant.toLowerCase().contains(_query);
                     }).toList();
 
                     if (conversations.isEmpty) {
+                      if (WoofCareWebDesign.enabled &&
+                          _query.isEmpty &&
+                          activeConversations.isEmpty) {
+                        return WoofCareBackendState(
+                          status: WoofCareBackendStatus.connectedEmpty,
+                          collectionLabel: 'conversations for this account',
+                          action: CustomButton(
+                            text: 'New conversation',
+                            icon: Icons.add,
+                            margin: 0,
+                            verticalPadding: 14,
+                            onTap: _openSearchSheet,
+                          ),
+                        );
+                      }
+
                       return WoofCareEmptyState(
                         icon: Icons.chat_bubble_outline,
-                        title: "No Conversations Yet",
-                        message: "Start a new chat to coordinate help.",
+                        title: _query.isEmpty
+                            ? 'No Conversations Yet'
+                            : 'No matching conversations',
+                        message: _query.isEmpty
+                            ? 'Start a new chat to coordinate help.'
+                            : 'Try a different name.',
                         action: CustomButton(
                           text: "New Chat",
                           icon: Icons.add,
@@ -162,7 +213,7 @@ class _ConversationsPageState extends State<ConversationsPage> {
                                 WoofCareBreakpoints.compact
                             ? 18
                             : 0,
-                        10,
+                        WoofCareWebDesign.enabled ? 22 : 10,
                         MediaQuery.sizeOf(context).width >=
                                 WoofCareBreakpoints.compact
                             ? 18
@@ -275,31 +326,56 @@ class _ConversationRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final imageIndex = (placeholderIndex % 8).clamp(0, 7);
+    final web = WoofCareWebDesign.enabled;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+      padding: EdgeInsets.symmetric(
+        horizontal: web ? 20 : 14,
+        vertical: web ? 5 : 7,
+      ),
       child: Material(
-        color: WoofCareColors.offWhite,
-        elevation: 3,
+        color: web ? WoofCareWebDesign.surface : WoofCareColors.offWhite,
+        elevation: web ? 0 : 3,
         shadowColor: WoofCareColors.cardShadow,
-        borderRadius: BorderRadius.circular(22),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(web ? 10 : 22),
+          side: web
+              ? const BorderSide(color: WoofCareWebDesign.border)
+              : BorderSide.none,
+        ),
         child: InkWell(
-          borderRadius: BorderRadius.circular(22),
+          borderRadius: BorderRadius.circular(web ? 10 : 22),
           onTap: onTap,
           child: SizedBox(
-            height: 92,
+            height: web ? 76 : 92,
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14),
+              padding: EdgeInsets.symmetric(horizontal: web ? 18 : 14),
               child: Row(
                 children: [
                   CircleAvatar(
-                    radius: 30,
-                    backgroundColor: WoofCareColors.backgroundElementColor,
-                    backgroundImage: AssetImage(
-                      "assets/images/placeholders/$imageIndex.jpg",
-                    ),
+                    radius: web ? 22 : 30,
+                    backgroundColor: web
+                        ? WoofCareWebDesign.primary.withValues(alpha: 0.1)
+                        : WoofCareColors.backgroundElementColor,
+                    backgroundImage: web
+                        ? null
+                        : AssetImage(
+                            "assets/images/placeholders/$imageIndex.jpg",
+                          ),
+                    child: web
+                        ? Text(
+                            name.trim().isEmpty
+                                ? '?'
+                                : name.trim()[0].toUpperCase(),
+                            style: const TextStyle(
+                              color: WoofCareWebDesign.primary,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          )
+                        : null,
                   ),
-                  const SizedBox(width: 18),
+                  SizedBox(width: web ? 14 : 18),
                   Expanded(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -312,36 +388,41 @@ class _ConversationRow extends StatelessWidget {
                                 name,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: WoofCareColors.primaryTextAndIcons,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w800,
+                                style: TextStyle(
+                                  color: web
+                                      ? WoofCareWebDesign.text
+                                      : WoofCareColors.primaryTextAndIcons,
+                                  fontSize: web ? 14 : 18,
+                                  fontWeight: web
+                                      ? FontWeight.w600
+                                      : FontWeight.w800,
                                 ),
                               ),
                             ),
                             const SizedBox(width: 12),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 9,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: WoofCareColors.floatingActionIcons
-                                    .withValues(alpha: 0.12),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: const Text(
-                                "Chat",
-                                style: TextStyle(
-                                  color: WoofCareColors.floatingActionIcons,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w800,
+                            if (!web)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 9,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: WoofCareColors.floatingActionIcons
+                                      .withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Text(
+                                  "Chat",
+                                  style: TextStyle(
+                                    color: WoofCareColors.floatingActionIcons,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w800,
+                                  ),
                                 ),
                               ),
-                            ),
                           ],
                         ),
-                        const SizedBox(height: 8),
+                        SizedBox(height: web ? 5 : 8),
                         FutureBuilder<String>(
                           future: lastMessage,
                           builder: (context, snapshot) {
@@ -349,10 +430,14 @@ class _ConversationRow extends StatelessWidget {
                               snapshot.data ?? "No messages yet",
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Color(0xFF734C28),
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
+                              style: TextStyle(
+                                color: web
+                                    ? WoofCareWebDesign.textMuted
+                                    : const Color(0xFF734C28),
+                                fontSize: web ? 13 : 14,
+                                fontWeight: web
+                                    ? FontWeight.w400
+                                    : FontWeight.w600,
                               ),
                             );
                           },

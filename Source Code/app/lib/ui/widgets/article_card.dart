@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:woofcare/config/colors.dart';
+import 'package:woofcare/ui/widgets/web_design_system.dart';
 
 class ArticleCard extends StatelessWidget {
   final String category;
@@ -21,62 +22,95 @@ class ArticleCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final web = WoofCareWebDesign.enabled;
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(web ? 12 : 18),
         onTap: onTap,
         child: Container(
           height: 193,
-          padding: const EdgeInsets.fromLTRB(16, 20, 16, 18),
+          padding: EdgeInsets.fromLTRB(
+            web ? 14 : 16,
+            web ? 14 : 20,
+            web ? 16 : 16,
+            web ? 14 : 18,
+          ),
           decoration: BoxDecoration(
-            color: WoofCareColors.secondaryBackground,
-            borderRadius: BorderRadius.circular(18),
-            boxShadow: [
-              BoxShadow(
-                color: WoofCareColors.cardShadow,
-                blurRadius: 14,
-                offset: const Offset(0, 7),
-              ),
-            ],
+            color: web
+                ? WoofCareWebDesign.surface
+                : WoofCareColors.secondaryBackground,
+            borderRadius: BorderRadius.circular(web ? 12 : 18),
+            border: web ? Border.all(color: WoofCareWebDesign.border) : null,
+            boxShadow: web
+                ? WoofCareWebDesign.cardShadow
+                : [
+                    BoxShadow(
+                      color: WoofCareColors.cardShadow,
+                      blurRadius: 14,
+                      offset: const Offset(0, 7),
+                    ),
+                  ],
           ),
           child: Row(
             children: [
               _ArticleImage(imageUrl: imageUrl),
-              const SizedBox(width: 22),
+              SizedBox(width: web ? 16 : 22),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      category,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: WoofCareColors.buttonColor,
-                        fontWeight: FontWeight.w700,
+                    Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: web ? 8 : 0,
+                        vertical: web ? 4 : 0,
+                      ),
+                      decoration: web
+                          ? BoxDecoration(
+                              color: WoofCareWebDesign.primary.withValues(
+                                alpha: 0.08,
+                              ),
+                              borderRadius: BorderRadius.circular(6),
+                            )
+                          : null,
+                      child: Text(
+                        web ? category.toUpperCase() : category,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: web ? 10 : 14,
+                          letterSpacing: web ? 0.7 : 0,
+                          color: web
+                              ? WoofCareWebDesign.primary
+                              : WoofCareColors.buttonColor,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    SizedBox(height: web ? 10 : 12),
                     Text(
                       title,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 20,
-                        height: 1.35,
-                        fontWeight: FontWeight.w800,
-                        color: WoofCareColors.primaryTextAndIcons,
+                      style: TextStyle(
+                        fontSize: web ? 17 : 20,
+                        height: web ? 1.3 : 1.35,
+                        fontWeight: web ? FontWeight.w600 : FontWeight.w800,
+                        color: web
+                            ? WoofCareWebDesign.text
+                            : WoofCareColors.primaryTextAndIcons,
                       ),
                     ),
                     const Spacer(),
                     Row(
                       children: [
-                        const Icon(
-                          Icons.person,
-                          size: 18,
-                          color: WoofCareColors.buttonColor,
+                        Icon(
+                          Icons.person_outline_rounded,
+                          size: web ? 15 : 18,
+                          color: web
+                              ? WoofCareWebDesign.textMuted
+                              : WoofCareColors.buttonColor,
                         ),
                         const SizedBox(width: 8),
                         Expanded(
@@ -84,10 +118,14 @@ class ArticleCard extends StatelessWidget {
                             author,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              color: WoofCareColors.buttonColor,
-                              fontWeight: FontWeight.w600,
+                            style: TextStyle(
+                              fontSize: web ? 12 : 13,
+                              color: web
+                                  ? WoofCareWebDesign.textMuted
+                                  : WoofCareColors.buttonColor,
+                              fontWeight: web
+                                  ? FontWeight.w500
+                                  : FontWeight.w600,
                             ),
                           ),
                         ),
@@ -96,9 +134,11 @@ class ArticleCard extends StatelessWidget {
                           date,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 12,
-                            color: WoofCareColors.buttonColor,
+                            color: web
+                                ? WoofCareWebDesign.textMuted
+                                : WoofCareColors.buttonColor,
                           ),
                         ),
                       ],
@@ -121,35 +161,35 @@ class _ArticleImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final web = WoofCareWebDesign.enabled;
+
     return ClipRRect(
-      borderRadius: BorderRadius.circular(22),
+      borderRadius: BorderRadius.circular(web ? 8 : 22),
       child: SizedBox(
-        width: 136,
-        height: 154,
-        child:
-            imageUrl.isNotEmpty
-                ? Image.network(
-                  imageUrl,
-                  fit: BoxFit.cover,
-                  loadingBuilder: (context, child, loadingProgress) {
-                    if (loadingProgress == null) return child;
-                    return Center(
-                      child: CircularProgressIndicator(
-                        value:
-                            loadingProgress.expectedTotalBytes != null
-                                ? loadingProgress.cumulativeBytesLoaded /
-                                    loadingProgress.expectedTotalBytes!
-                                : null,
-                        color: WoofCareColors.buttonColor,
-                        strokeWidth: 2,
-                      ),
-                    );
-                  },
-                  errorBuilder: (context, error, stackTrace) {
-                    return const _ArticleImageFallback();
-                  },
-                )
-                : const _ArticleImageFallback(),
+        width: web ? 124 : 136,
+        height: web ? 163 : 154,
+        child: imageUrl.isNotEmpty
+            ? Image.network(
+                imageUrl,
+                fit: BoxFit.cover,
+                loadingBuilder: (context, child, loadingProgress) {
+                  if (loadingProgress == null) return child;
+                  return Center(
+                    child: CircularProgressIndicator(
+                      value: loadingProgress.expectedTotalBytes != null
+                          ? loadingProgress.cumulativeBytesLoaded /
+                                loadingProgress.expectedTotalBytes!
+                          : null,
+                      color: WoofCareColors.buttonColor,
+                      strokeWidth: 2,
+                    ),
+                  );
+                },
+                errorBuilder: (context, error, stackTrace) {
+                  return const _ArticleImageFallback();
+                },
+              )
+            : const _ArticleImageFallback(),
       ),
     );
   }
@@ -160,12 +200,15 @@ class _ArticleImageFallback extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final web = WoofCareWebDesign.enabled;
     return Container(
-      color: WoofCareColors.buttonColor.withValues(alpha: 0.1),
-      child: const Icon(
-        Icons.pets,
-        size: 56,
-        color: WoofCareColors.buttonColor,
+      color: web
+          ? WoofCareWebDesign.surfaceMuted
+          : WoofCareColors.buttonColor.withValues(alpha: 0.1),
+      child: Icon(
+        web ? Icons.image_outlined : Icons.pets,
+        size: web ? 34 : 56,
+        color: web ? WoofCareWebDesign.textMuted : WoofCareColors.buttonColor,
       ),
     );
   }

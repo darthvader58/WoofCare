@@ -15,6 +15,8 @@ import 'package:woofcare/services/location_privacy.dart';
 import 'package:woofcare/services/notification_service.dart';
 import 'package:woofcare/services/report_location_service.dart';
 import 'package:woofcare/ui/widgets/app_chrome.dart';
+import 'package:woofcare/ui/widgets/responsive.dart';
+import 'package:woofcare/ui/widgets/web_design_system.dart';
 
 import '/ui/pages/export.dart';
 
@@ -94,150 +96,160 @@ class _MapPageState extends State<MapPage> {
               });
             }
           },
-          child: DraggableScrollableSheet(
-            initialChildSize: 0.54,
-            minChildSize: 0.28,
-            maxChildSize: 0.75,
-            builder: (sheetContext, scrollController) {
-              return Container(
-                decoration: const BoxDecoration(
-                  color: WoofCareColors.secondaryBackground,
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-                  border: Border(
-                    top: BorderSide(
-                      color: WoofCareColors.borderOutline,
-                      width: 2.0,
-                    ),
-                  ),
-                ),
-                child: SingleChildScrollView(
-                  controller: scrollController,
-                  child: Padding(
-                    padding: const EdgeInsets.only(
-                      left: 20,
-                      right: 20,
-                      top: 12,
-                      bottom: 24,
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Drag handle
-                        Center(
-                          child: Container(
-                            margin: const EdgeInsets.only(top: 8, bottom: 12),
-                            width: 40,
-                            height: 5,
-                            decoration: BoxDecoration(
-                              color: WoofCareColors.primaryTextAndIcons,
-                              borderRadius: BorderRadius.circular(12),
+          child: WoofCareSheetSurface(
+            maxWidth: 760,
+            child: DraggableScrollableSheet(
+              initialChildSize: 0.54,
+              minChildSize: 0.28,
+              maxChildSize: 0.75,
+              builder: (sheetContext, scrollController) {
+                return Container(
+                  decoration: BoxDecoration(
+                    color: WoofCareWebDesign.enabled
+                        ? WoofCareWebDesign.surface
+                        : WoofCareColors.secondaryBackground,
+                    borderRadius: WoofCareWebDesign.enabled
+                        ? BorderRadius.circular(14)
+                        : const BorderRadius.vertical(top: Radius.circular(24)),
+                    border: WoofCareWebDesign.enabled
+                        ? Border.all(color: WoofCareWebDesign.border)
+                        : const Border(
+                            top: BorderSide(
+                              color: WoofCareColors.borderOutline,
+                              width: 2,
                             ),
                           ),
-                        ),
-
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _MarkerPreviewImage(images: images),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    title,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      fontSize: 22,
-                                      height: 1.15,
-                                      fontWeight: FontWeight.w800,
-                                      color: WoofCareColors.primaryTextAndIcons,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  _MarkerMeta(markerData: markerData),
-                                ],
+                  ),
+                  child: SingleChildScrollView(
+                    controller: scrollController,
+                    child: Padding(
+                      padding: const EdgeInsets.only(
+                        left: 20,
+                        right: 20,
+                        top: 12,
+                        bottom: 24,
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Drag handle
+                          Center(
+                            child: Container(
+                              margin: const EdgeInsets.only(top: 8, bottom: 12),
+                              width: 40,
+                              height: 5,
+                              decoration: BoxDecoration(
+                                color: WoofCareColors.primaryTextAndIcons,
+                                borderRadius: BorderRadius.circular(12),
                               ),
                             ),
-                          ],
-                        ),
-
-                        const SizedBox(height: 12),
-
-                        _MarkerActions(
-                          markerData: markerData,
-                          onDirections: () async {
-                            Navigator.of(context).pop();
-                            await _openDirections(markerData);
-                          },
-                          onCall: () => _launchPhone(_markerPhone(markerData)),
-                          onWebsite: () => _openWebsite(markerData),
-                          onChat: isReport
-                                  ? () => _startChatWithReporter(markerData)
-                                  : null,
-                        ),
-
-                        const SizedBox(height: 18),
-
-                        Divider(
-                          color: WoofCareColors.primaryTextAndIcons.withValues(
-                            alpha: 0.18,
                           ),
-                          height: 1,
-                        ),
 
-                        const SizedBox(height: 18),
-
-                        const Text(
-                          'About',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w500,
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _MarkerPreviewImage(images: images),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      title,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontSize: 22,
+                                        height: 1.15,
+                                        fontWeight: FontWeight.w800,
+                                        color:
+                                            WoofCareColors.primaryTextAndIcons,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    _MarkerMeta(markerData: markerData),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                        const SizedBox(height: 8),
-                        _MarkerAbout(markerData: markerData, images: images),
 
-                        if (isReport && images.isNotEmpty) ...[
+                          const SizedBox(height: 12),
+
+                          _MarkerActions(
+                            markerData: markerData,
+                            onDirections: () async {
+                              Navigator.of(context).pop();
+                              await _openDirections(markerData);
+                            },
+                            onCall: () =>
+                                _launchPhone(_markerPhone(markerData)),
+                            onWebsite: () => _openWebsite(markerData),
+                            onChat: isReport
+                                ? () => _startChatWithReporter(markerData)
+                                : null,
+                          ),
+
                           const SizedBox(height: 18),
+
+                          Divider(
+                            color: WoofCareColors.primaryTextAndIcons
+                                .withValues(alpha: 0.18),
+                            height: 1,
+                          ),
+
+                          const SizedBox(height: 18),
+
                           const Text(
-                            'Photos',
+                            'About',
                             style: TextStyle(
                               fontSize: 18,
-                              fontWeight: FontWeight.w700,
-                              color: WoofCareColors.primaryTextAndIcons,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
-                          const SizedBox(height: 10),
-                          _MarkerImageStrip(images: images),
-                        ],
+                          const SizedBox(height: 8),
+                          _MarkerAbout(markerData: markerData, images: images),
 
-                        if (isReport &&
-                            (markerData['reporterName'] ?? '')
-                                .toString()
-                                .isNotEmpty) ...[
+                          if (isReport && images.isNotEmpty) ...[
+                            const SizedBox(height: 18),
+                            const Text(
+                              'Photos',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
+                                color: WoofCareColors.primaryTextAndIcons,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            _MarkerImageStrip(images: images),
+                          ],
+
+                          if (isReport &&
+                              (markerData['reporterName'] ?? '')
+                                  .toString()
+                                  .isNotEmpty) ...[
+                            const SizedBox(height: 18),
+                            _ReporterCard(markerData: markerData),
+                          ],
+
+                          if (isReport) ...[
+                            const SizedBox(height: 18),
+                            _ExactLocationAccessPanel(
+                              markerData: markerData,
+                              canAccept: _canAcceptReport(markerData),
+                              onAccept: () => _acceptReport(markerData),
+                            ),
+                          ],
+
                           const SizedBox(height: 18),
-                          _ReporterCard(markerData: markerData),
                         ],
-
-                        if (isReport) ...[
-                          const SizedBox(height: 18),
-                          _ExactLocationAccessPanel(
-                            markerData: markerData,
-                            canAccept: _canAcceptReport(markerData),
-                            onAccept: () => _acceptReport(markerData),
-                          ),
-                        ],
-
-                        const SizedBox(height: 18),
-                      ],
+                      ),
                     ),
                   ),
-                ),
-              );
-            },
+                );
+              },
+            ),
           ),
         );
       },
@@ -279,8 +291,8 @@ class _MapPageState extends State<MapPage> {
 
   String? _markerPhone(Map<String, dynamic> markerData) {
     final value = markerData['type'] == 'report'
-            ? markerData['reporterPhone']
-            : markerData['phone'];
+        ? markerData['reporterPhone']
+        : markerData['phone'];
     final phone = value?.toString().trim();
     if (phone == null || phone.isEmpty) return null;
     return phone;
@@ -334,17 +346,17 @@ class _MapPageState extends State<MapPage> {
     }
 
     final snapshot = await FIRESTORE
-            .collection('conversations')
-            .where('participantIds', arrayContains: profile.id)
-            .get();
+        .collection('conversations')
+        .where('participantIds', arrayContains: profile.id)
+        .get();
 
     final conversations = snapshot.docs.where((doc) {
-          final data = doc.data();
-          final participantIds = data['participantIds'] as List? ?? [];
-          return participantIds.contains(reporterUserId) &&
-              data['isReportChat'] == true &&
-              data['reportId'] == markerData['id'];
-        }).toList();
+      final data = doc.data();
+      final participantIds = data['participantIds'] as List? ?? [];
+      return participantIds.contains(reporterUserId) &&
+          data['isReportChat'] == true &&
+          data['reportId'] == markerData['id'];
+    }).toList();
 
     final isAnonymous = markerData['isAnonymous'] == true;
     final reporterName =
@@ -355,10 +367,10 @@ class _MapPageState extends State<MapPage> {
         ? profile.name
         : 'Anonymous User';
     final reporterDisplayName = isAnonymous
-            ? 'Anonymous Reporter'
-            : (reporterName == null || reporterName.isEmpty
-                ? 'Reporter'
-                : reporterName);
+        ? 'Anonymous Reporter'
+        : (reporterName == null || reporterName.isEmpty
+              ? 'Reporter'
+              : reporterName);
     final existingData = conversations.isNotEmpty
         ? conversations.first.data()
         : null;
@@ -387,7 +399,7 @@ class _MapPageState extends State<MapPage> {
 
     final chatID = conversations.isEmpty
         ? (await FIRESTORE.collection('conversations').add(conversationData)).id
-            : conversations.first.id;
+        : conversations.first.id;
 
     if (conversations.isNotEmpty) {
       await conversations.first.reference.set(
@@ -463,6 +475,7 @@ class _MapPageState extends State<MapPage> {
 
   @override
   Widget build(BuildContext context) {
+    final web = WoofCareWebDesign.enabled;
     final initialMapTarget =
         currentPosition ?? _firstMarkerPosition() ?? _worldFallbackCenter;
 
@@ -492,7 +505,10 @@ class _MapPageState extends State<MapPage> {
                 zoomGesturesEnabled: true,
                 rotateGesturesEnabled: true,
                 tiltGesturesEnabled: true,
-                padding: const EdgeInsets.only(top: 132, bottom: 108),
+                padding: EdgeInsets.only(
+                  top: web ? 164 : 132,
+                  bottom: web ? 40 : 108,
+                ),
                 mapType: MapType.normal,
                 initialCameraPosition: CameraPosition(
                   target: initialMapTarget,
@@ -525,27 +541,27 @@ class _MapPageState extends State<MapPage> {
               ),
             ),
             Positioned(
-              top: 14,
-              left: 14,
-              right: 14,
+              top: web ? 24 : 14,
+              left: web ? 24 : 14,
+              right: web ? 24 : 14,
               child: _MapToolbar(
                 onProfileTap: () => Navigator.pushNamed(context, "/profile"),
               ),
             ),
             Positioned(
-              bottom: 124,
-              left: 16,
+              bottom: web ? 30 : 124,
+              left: web ? 24 : 16,
               child: _ReportFab(onTap: _reportDogButtonPressed),
             ),
             Positioned(
-              top: 110,
-              left: 0,
-              right: 0,
+              top: web ? 106 : 110,
+              left: web ? 24 : 0,
+              right: web ? 24 : 0,
               child: _MapFilterBar(
                 selectedType: selectedMarkerType,
                 onSelected: (type) => setState(() {
-                      selectedMarkerType = type;
-                    }),
+                  selectedMarkerType = type;
+                }),
               ),
             ),
           ],
@@ -587,8 +603,8 @@ class _MapPageState extends State<MapPage> {
 
       final radius = marker['locationPrivacyRadiusMeters'];
       final radiusMeters = radius is num
-              ? radius.toDouble()
-              : reportLocationFuzzRadiusMeters.toDouble();
+          ? radius.toDouble()
+          : reportLocationFuzzRadiusMeters.toDouble();
       final center = LatLng(latitude.toDouble(), longitude.toDouble());
 
       circles.add(
@@ -621,66 +637,74 @@ class _MapPageState extends State<MapPage> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) {
-        return DraggableScrollableSheet(
-          // Make the bottom sheet draggable
-          initialChildSize: 0.75,
-          minChildSize: 0.3,
-          maxChildSize: 0.95,
-          builder: (sheetContext, scrollController) {
-            return Container(
-              // Container to store the drag handle and the ReportingPage
-              decoration: const BoxDecoration(
-                color: WoofCareColors.secondaryBackground,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-                border: Border(
-                  top: BorderSide(
-                    color: WoofCareColors.borderOutline,
-                    width: 2.0,
-                  ),
+        return WoofCareSheetSurface(
+          child: DraggableScrollableSheet(
+            // Make the bottom sheet draggable
+            initialChildSize: 0.75,
+            minChildSize: 0.3,
+            maxChildSize: 0.95,
+            builder: (sheetContext, scrollController) {
+              return Container(
+                // Container to store the drag handle and the ReportingPage
+                decoration: BoxDecoration(
+                  color: WoofCareWebDesign.enabled
+                      ? WoofCareWebDesign.surface
+                      : WoofCareColors.secondaryBackground,
+                  borderRadius: WoofCareWebDesign.enabled
+                      ? BorderRadius.circular(14)
+                      : const BorderRadius.vertical(top: Radius.circular(24)),
+                  border: WoofCareWebDesign.enabled
+                      ? Border.all(color: WoofCareWebDesign.border)
+                      : const Border(
+                          top: BorderSide(
+                            color: WoofCareColors.borderOutline,
+                            width: 2,
+                          ),
+                        ),
                 ),
-              ),
 
-              // Children of the container => drag handle and the ReportingPage
-              child: Column(
-                children: [
-                  // Drag handle (necessary since modal bottom sheet's handle doesn't align with the current setup)
-                  Container(
-                    margin: const EdgeInsets.only(top: 20, bottom: 16),
-                    width: 40,
-                    height: 5,
-                    decoration: BoxDecoration(
-                      color: WoofCareColors.primaryTextAndIcons,
-                      borderRadius: BorderRadius.circular(12),
+                // Children of the container => drag handle and the ReportingPage
+                child: Column(
+                  children: [
+                    // Drag handle (necessary since modal bottom sheet's handle doesn't align with the current setup)
+                    Container(
+                      margin: const EdgeInsets.only(top: 20, bottom: 16),
+                      width: 40,
+                      height: 5,
+                      decoration: BoxDecoration(
+                        color: WoofCareColors.primaryTextAndIcons,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
-                  ),
 
-                  const Text(
-                    'Dog Report',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w200,
-                      color: WoofCareColors.primaryTextAndIcons,
+                    const Text(
+                      'Dog Report',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w200,
+                        color: WoofCareColors.primaryTextAndIcons,
+                      ),
                     ),
-                  ),
 
-                  const SizedBox(height: 12),
+                    const SizedBox(height: 12),
 
-                  Divider(color: Colors.black, height: 2.0),
+                    Divider(color: Colors.black, height: 2.0),
 
-                  // The ReportingPage (uses Expanded to take up the rest of the space)
-                  Expanded(
-                    child: SafeArea(
-                      top: false,
-                      left: false,
-                      right: false,
-                      child: ReportPage(scrollController: scrollController),
+                    // The ReportingPage (uses Expanded to take up the rest of the space)
+                    Expanded(
+                      child: SafeArea(
+                        top: false,
+                        left: false,
+                        right: false,
+                        child: ReportPage(scrollController: scrollController),
+                      ),
                     ),
-                  ),
-                ],
-              ),
-            );
-          },
+                  ],
+                ),
+              );
+            },
+          ),
         );
       },
     );
@@ -904,8 +928,8 @@ class _MapPageState extends State<MapPage> {
       final data = doc.data() as Map<String, dynamic>?;
 
       final publicLocation = data == null
-              ? null
-              : ReportLocationService.publicDisplayLocation(data);
+          ? null
+          : ReportLocationService.publicDisplayLocation(data);
 
       if (data != null && publicLocation != null) {
         final isAnonymous = data['isAnonymous'] == true;
@@ -919,11 +943,11 @@ class _MapPageState extends State<MapPage> {
         final reporterId = data['userID']?.toString();
         final exactLocation =
             profile.accountType == 'organization' && profile.verified
-                ? await ReportLocationService.fetchGrantedLocation(
-                  reportId: doc.id,
-                  organizationId: profile.id,
-                )
-                : null;
+            ? await ReportLocationService.fetchGrantedLocation(
+                reportId: doc.id,
+                organizationId: profile.id,
+              )
+            : null;
         final displayLatitude =
             exactLocation?.latitude ?? publicLocation.latitude;
         final displayLongitude =
@@ -959,11 +983,11 @@ class _MapPageState extends State<MapPage> {
           'latitude': displayLatitude,
           'longitude': displayLongitude,
           'fuzzedLatitude': data['fuzzedLatitude'] is num
-                  ? (data['fuzzedLatitude'] as num).toDouble()
-                  : publicLocation.latitude,
+              ? (data['fuzzedLatitude'] as num).toDouble()
+              : publicLocation.latitude,
           'fuzzedLongitude': data['fuzzedLongitude'] is num
-                  ? (data['fuzzedLongitude'] as num).toDouble()
-                  : publicLocation.longitude,
+              ? (data['fuzzedLongitude'] as num).toDouble()
+              : publicLocation.longitude,
           'exactLocationVisible': exactLocation != null,
           'locationPrivacyRadiusMeters':
               data['locationPrivacyRadiusMeters'] ??
@@ -1169,18 +1193,18 @@ class _MarkerPreviewImage extends StatelessWidget {
         width: 96,
         height: 96,
         child: image == null
-                ? Image.asset(
+            ? Image.asset(
+                'assets/images/placeholders/placeholder.jpeg',
+                fit: BoxFit.cover,
+              )
+            : Image.network(
+                image,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => Image.asset(
                   'assets/images/placeholders/placeholder.jpeg',
                   fit: BoxFit.cover,
-                )
-                : Image.network(
-                  image,
-                  fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => Image.asset(
-                        'assets/images/placeholders/placeholder.jpeg',
-                        fit: BoxFit.cover,
-                      ),
                 ),
+              ),
       ),
     );
   }
@@ -1216,14 +1240,14 @@ class _MarkerMeta extends StatelessWidget {
             ),
           _InfoPill(
             icon: markerData['exactLocationVisible'] == true
-                    ? Icons.location_on_rounded
-                    : Icons.blur_on_rounded,
+                ? Icons.location_on_rounded
+                : Icons.blur_on_rounded,
             label: markerData['exactLocationVisible'] == true
-                    ? 'Exact pin'
-                    : 'Approximate pin',
+                ? 'Exact pin'
+                : 'Approximate pin',
             color: markerData['exactLocationVisible'] == true
-                    ? WoofCareColors.buttonColor
-                    : WoofCareColors.mutedText,
+                ? WoofCareColors.buttonColor
+                : WoofCareColors.mutedText,
           ),
         ],
       );
@@ -1477,23 +1501,23 @@ class _MarkerImageStrip extends StatelessWidget {
         itemCount: images.length,
         separatorBuilder: (context, index) => const SizedBox(width: 10),
         itemBuilder: (context, index) => ClipRRect(
-              borderRadius: BorderRadius.circular(14),
-              child: Image.network(
-                images[index],
-                width: 132,
-                height: 108,
-                fit: BoxFit.cover,
+          borderRadius: BorderRadius.circular(14),
+          child: Image.network(
+            images[index],
+            width: 132,
+            height: 108,
+            fit: BoxFit.cover,
             errorBuilder: (context, error, stackTrace) => Container(
-                      width: 132,
-                      height: 108,
-                      color: WoofCareColors.textBoxColor,
-                      child: const Icon(
-                        Icons.image_not_supported_rounded,
-                        color: WoofCareColors.primaryTextAndIcons,
-                      ),
-                    ),
+              width: 132,
+              height: 108,
+              color: WoofCareColors.textBoxColor,
+              child: const Icon(
+                Icons.image_not_supported_rounded,
+                color: WoofCareColors.primaryTextAndIcons,
               ),
             ),
+          ),
+        ),
       ),
     );
   }
@@ -1673,15 +1697,15 @@ class _ExactLocationAccessPanelState extends State<_ExactLocationAccessPanel> {
                     ),
                     onPressed: widget.canAccept && !_accepting ? _accept : null,
                     icon: _accepting
-                            ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: WoofCareColors.offWhite,
-                              ),
-                            )
-                            : const Icon(Icons.assignment_turned_in_rounded),
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: WoofCareColors.offWhite,
+                            ),
+                          )
+                        : const Icon(Icons.assignment_turned_in_rounded),
                     label: Text(
                       profile.verified
                           ? 'Accept responsibility'
@@ -1858,18 +1882,30 @@ class _MapToolbar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final web = WoofCareWebDesign.enabled;
+
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
+      padding: EdgeInsets.fromLTRB(
+        web ? 18 : 16,
+        web ? 13 : 14,
+        web ? 14 : 12,
+        web ? 13 : 14,
+      ),
       decoration: BoxDecoration(
-        color: WoofCareColors.offWhite.withValues(alpha: 0.96),
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.18),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
-          ),
-        ],
+        color: web
+            ? WoofCareWebDesign.surface.withValues(alpha: 0.98)
+            : WoofCareColors.offWhite.withValues(alpha: 0.96),
+        borderRadius: BorderRadius.circular(web ? 10 : 22),
+        border: web ? Border.all(color: WoofCareWebDesign.border) : null,
+        boxShadow: web
+            ? WoofCareWebDesign.cardShadow
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.18),
+                  blurRadius: 18,
+                  offset: const Offset(0, 8),
+                ),
+              ],
       ),
       child: Row(
         children: [
@@ -1878,14 +1914,16 @@ class _MapToolbar extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text(
+                Text(
                   'Nearby Help',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: WoofCareColors.primaryTextAndIcons,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
+                    color: web
+                        ? WoofCareWebDesign.text
+                        : WoofCareColors.primaryTextAndIcons,
+                    fontSize: web ? 17 : 22,
+                    fontWeight: web ? FontWeight.w600 : FontWeight.w800,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -1894,8 +1932,10 @@ class _MapToolbar extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: WoofCareColors.mutedText.withValues(alpha: 0.82),
-                    fontSize: 13,
+                    color: web
+                        ? WoofCareWebDesign.textMuted
+                        : WoofCareColors.mutedText.withValues(alpha: 0.82),
+                    fontSize: web ? 12 : 13,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -1924,12 +1964,14 @@ class _ReportFabState extends State<_ReportFab> {
 
   @override
   Widget build(BuildContext context) {
+    final web = WoofCareWebDesign.enabled;
+
     return Tooltip(
       message: 'Report a stray dog',
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(28),
+          borderRadius: BorderRadius.circular(web ? 8 : 28),
           onTap: widget.onTap,
           // Drives the press feedback below without a separate GestureDetector,
           // so it can't fight the map's own pan/zoom gesture recognizers.
@@ -1943,35 +1985,46 @@ class _ReportFabState extends State<_ReportFab> {
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 120),
               curve: Curves.easeOut,
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-              decoration: BoxDecoration(
-                color: WoofCareColors.buttonColor,
-                borderRadius: BorderRadius.circular(28),
-                boxShadow: [
-                  BoxShadow(
-                    color: WoofCareColors.buttonColor.withValues(
-                      alpha: _pressed ? 0.22 : 0.4,
-                    ),
-                    blurRadius: _pressed ? 10 : 20,
-                    offset: Offset(0, _pressed ? 3 : 8),
-                  ),
-                ],
+              padding: EdgeInsets.symmetric(
+                horizontal: web ? 16 : 20,
+                vertical: web ? 12 : 16,
               ),
-              child: const Row(
+              decoration: BoxDecoration(
+                color: web
+                    ? WoofCareWebDesign.primary
+                    : WoofCareColors.buttonColor,
+                borderRadius: BorderRadius.circular(web ? 8 : 28),
+                boxShadow: web
+                    ? WoofCareWebDesign.cardShadow
+                    : [
+                        BoxShadow(
+                          color: WoofCareColors.buttonColor.withValues(
+                            alpha: _pressed ? 0.22 : 0.4,
+                          ),
+                          blurRadius: _pressed ? 10 : 20,
+                          offset: Offset(0, _pressed ? 3 : 8),
+                        ),
+                      ],
+              ),
+              child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   FaIcon(
                     FontAwesomeIcons.bullhorn,
-                    color: WoofCareColors.offWhite,
-                    size: 19,
+                    color: web
+                        ? WoofCareWebDesign.onPrimary
+                        : WoofCareColors.offWhite,
+                    size: web ? 15 : 19,
                   ),
                   SizedBox(width: 10),
                   Text(
-                    'Report',
+                    web ? 'Create report' : 'Report',
                     style: TextStyle(
-                      color: WoofCareColors.offWhite,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
+                      color: web
+                          ? WoofCareWebDesign.onPrimary
+                          : WoofCareColors.offWhite,
+                      fontSize: web ? 13 : 15,
+                      fontWeight: web ? FontWeight.w600 : FontWeight.w800,
                     ),
                   ),
                 ],
@@ -2030,8 +2083,21 @@ class _MapFilterBarState extends State<_MapFilterBar> {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 52,
+    final web = WoofCareWebDesign.enabled;
+
+    return Container(
+      height: web ? 50 : 52,
+      padding: web
+          ? const EdgeInsets.symmetric(horizontal: 4)
+          : EdgeInsets.zero,
+      decoration: web
+          ? BoxDecoration(
+              color: WoofCareWebDesign.surface.withValues(alpha: 0.98),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: WoofCareWebDesign.border),
+              boxShadow: WoofCareWebDesign.cardShadow,
+            )
+          : null,
       child: Stack(
         alignment: Alignment.center,
         children: [
@@ -2040,7 +2106,7 @@ class _MapFilterBarState extends State<_MapFilterBar> {
             scrollDirection: Axis.horizontal,
             physics: const BouncingScrollPhysics(),
             clipBehavior: Clip.none,
-            padding: const EdgeInsets.fromLTRB(56, 8, 56, 8),
+            padding: EdgeInsets.fromLTRB(web ? 44 : 56, 8, web ? 44 : 56, 8),
             itemCount: filters.length,
             separatorBuilder: (context, index) => const SizedBox(width: 8),
             itemBuilder: (context, index) {
@@ -2080,10 +2146,13 @@ class _FilterScrollButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final web = WoofCareWebDesign.enabled;
     return Material(
-      color: WoofCareColors.offWhite.withValues(alpha: 0.96),
-      borderRadius: BorderRadius.circular(18),
-      elevation: 3,
+      color: web
+          ? WoofCareWebDesign.surface
+          : WoofCareColors.offWhite.withValues(alpha: 0.96),
+      borderRadius: BorderRadius.circular(web ? 7 : 18),
+      elevation: web ? 0 : 3,
       child: InkWell(
         borderRadius: BorderRadius.circular(18),
         onTap: onTap,
@@ -2092,8 +2161,10 @@ class _FilterScrollButton extends StatelessWidget {
           height: 36,
           child: Icon(
             icon,
-            color: WoofCareColors.primaryTextAndIcons,
-            size: 24,
+            color: web
+                ? WoofCareWebDesign.textMuted
+                : WoofCareColors.primaryTextAndIcons,
+            size: web ? 20 : 24,
           ),
         ),
       ),

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:woofcare/config/colors.dart';
+import 'package:woofcare/ui/widgets/web_design_system.dart';
 
 class WoofCareNavBar extends StatelessWidget {
   final int currentIndex;
@@ -16,23 +18,29 @@ class WoofCareNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final web = WoofCareWebDesign.enabled;
+
     return SafeArea(
       top: false,
       child: Container(
-        height: 96,
+        height: web ? 72 : 96,
         padding: const EdgeInsets.symmetric(horizontal: 4),
         decoration: BoxDecoration(
-          color: WoofCareColors.offWhite,
+          color: web ? WoofCareWebDesign.surface : WoofCareColors.offWhite,
           border: Border(
             top: BorderSide(
-              color: WoofCareColors.primaryTextAndIcons.withValues(alpha: 0.2),
+              color: web
+                  ? WoofCareWebDesign.border
+                  : WoofCareColors.primaryTextAndIcons.withValues(alpha: 0.2),
             ),
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.16),
-              blurRadius: 18,
-              offset: const Offset(0, -4),
+              color: WoofCareColors.primaryTextAndIcons.withValues(
+                alpha: web ? 0.08 : 0.16,
+              ),
+              blurRadius: web ? 12 : 18,
+              offset: Offset(0, web ? -2 : -4),
             ),
           ],
         ),
@@ -95,58 +103,82 @@ class WoofCareNavigationRail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final web = WoofCareWebDesign.enabled;
+
     return SafeArea(
       right: false,
       child: Container(
-        width: extended ? 232 : 88,
+        width: web ? (extended ? 252 : 76) : (extended ? 232 : 88),
         decoration: BoxDecoration(
-          color: WoofCareColors.offWhite,
+          color: web ? WoofCareWebDesign.sidebar : WoofCareColors.offWhite,
           border: Border(
             right: BorderSide(
-              color: WoofCareColors.primaryTextAndIcons.withValues(alpha: 0.1),
+              color: web
+                  ? Colors.white.withValues(alpha: 0.08)
+                  : WoofCareColors.primaryTextAndIcons.withValues(alpha: 0.1),
             ),
           ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.06),
-              blurRadius: 18,
-              offset: const Offset(5, 0),
-            ),
-          ],
+          boxShadow: web
+              ? const []
+              : [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.06),
+                    blurRadius: 18,
+                    offset: const Offset(5, 0),
+                  ),
+                ],
         ),
         child: Column(
           children: [
             Padding(
-              padding: EdgeInsets.fromLTRB(extended ? 22 : 16, 22, 16, 18),
+              padding: EdgeInsets.fromLTRB(
+                extended ? (web ? 20 : 22) : (web ? 14 : 16),
+                web ? 24 : 22,
+                web ? 16 : 16,
+                web ? 22 : 18,
+              ),
               child: Row(
                 mainAxisAlignment: extended
                     ? MainAxisAlignment.start
                     : MainAxisAlignment.center,
                 children: [
-                  Container(
-                    width: 46,
-                    height: 46,
-                    decoration: BoxDecoration(
-                      color: WoofCareColors.buttonColor,
-                      borderRadius: BorderRadius.circular(16),
+                  if (web)
+                    SizedBox(
+                      width: 42,
+                      height: 42,
+                      child: SvgPicture.asset(
+                        'assets/images/branding/logo.svg',
+                        semanticsLabel: 'WoofCare logo',
+                      ),
+                    )
+                  else
+                    Container(
+                      width: 46,
+                      height: 46,
+                      decoration: BoxDecoration(
+                        color: WoofCareColors.buttonColor,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: const Icon(
+                        Icons.pets_rounded,
+                        color: WoofCareColors.offWhite,
+                        size: 25,
+                      ),
                     ),
-                    child: const Icon(
-                      Icons.pets_rounded,
-                      color: WoofCareColors.offWhite,
-                      size: 25,
-                    ),
-                  ),
                   if (extended) ...[
                     const SizedBox(width: 12),
-                    const Expanded(
+                    Expanded(
                       child: Text(
                         'WoofCare',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          color: WoofCareColors.primaryTextAndIcons,
-                          fontSize: 21,
-                          fontWeight: FontWeight.w800,
+                          color: web
+                              ? WoofCareWebDesign.onPrimary
+                              : WoofCareColors.primaryTextAndIcons,
+                          fontSize: web ? 18 : 21,
+                          fontWeight: web ? FontWeight.w700 : FontWeight.w800,
+                          letterSpacing: web ? -0.35 : 0,
                         ),
                       ),
                     ),
@@ -154,8 +186,13 @@ class WoofCareNavigationRail extends StatelessWidget {
                 ],
               ),
             ),
-            const Divider(height: 1),
-            const SizedBox(height: 14),
+            Divider(
+              height: 1,
+              color: web
+                  ? Colors.white.withValues(alpha: 0.08)
+                  : Theme.of(context).dividerColor,
+            ),
+            SizedBox(height: web ? 18 : 14),
             _RailDestination(
               icon: Icons.location_on_outlined,
               selectedIcon: Icons.location_on_rounded,
@@ -173,33 +210,42 @@ class WoofCareNavigationRail extends StatelessWidget {
               onTap: () => onTabSelected(1),
             ),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding: EdgeInsets.symmetric(
+                horizontal: web ? 12 : 12,
+                vertical: web ? 12 : 8,
+              ),
               child: Tooltip(
                 message: 'Report a dog',
                 child: Material(
-                  color: WoofCareColors.buttonColor,
-                  borderRadius: BorderRadius.circular(16),
+                  color: web
+                      ? WoofCareWebDesign.primary
+                      : WoofCareColors.buttonColor,
+                  borderRadius: BorderRadius.circular(web ? 8 : 16),
                   child: InkWell(
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(web ? 8 : 16),
                     onTap: onReportTap,
                     child: SizedBox(
-                      height: 54,
+                      height: web ? 44 : 54,
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const FaIcon(
+                          FaIcon(
                             FontAwesomeIcons.plus,
-                            color: WoofCareColors.offWhite,
-                            size: 22,
+                            color: web
+                                ? WoofCareWebDesign.onPrimary
+                                : WoofCareColors.offWhite,
+                            size: web ? 15 : 22,
                           ),
                           if (extended) ...[
                             const SizedBox(width: 13),
-                            const Text(
+                            Text(
                               'Report a dog',
                               style: TextStyle(
-                                color: WoofCareColors.offWhite,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w800,
+                                color: web
+                                    ? WoofCareWebDesign.onPrimary
+                                    : WoofCareColors.offWhite,
+                                fontSize: web ? 13 : 14,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
                           ],
@@ -231,11 +277,17 @@ class WoofCareNavigationRail extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.all(20),
                 child: Text(
-                  'Helping every dog find care.',
+                  web
+                      ? 'Community care operations'
+                      : 'Helping every dog find care.',
                   style: TextStyle(
-                    color: WoofCareColors.mutedText.withValues(alpha: 0.75),
-                    fontSize: 12,
+                    color: web
+                        ? WoofCareColors.backgroundElementColor
+                        : WoofCareColors.mutedText.withValues(alpha: 0.75),
+                    fontSize: web ? 11 : 12,
                     height: 1.35,
+                    fontWeight: web ? FontWeight.w500 : FontWeight.normal,
+                    letterSpacing: web ? 0.25 : 0,
                   ),
                 ),
               ),
@@ -265,24 +317,34 @@ class _RailDestination extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final foreground = selected
+    final web = WoofCareWebDesign.enabled;
+    final foreground = web
+        ? selected
+              ? WoofCareWebDesign.onPrimary
+              : WoofCareColors.textBoxColor
+        : selected
         ? WoofCareColors.buttonColor
         : WoofCareColors.primaryTextAndIcons.withValues(alpha: 0.68);
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      padding: EdgeInsets.symmetric(
+        horizontal: web ? 10 : 12,
+        vertical: web ? 3 : 4,
+      ),
       child: Tooltip(
         message: label,
         child: Material(
           color: selected
-              ? WoofCareColors.buttonColor.withValues(alpha: 0.12)
+              ? web
+                    ? Colors.white.withValues(alpha: 0.1)
+                    : WoofCareColors.buttonColor.withValues(alpha: 0.12)
               : Colors.transparent,
-          borderRadius: BorderRadius.circular(15),
+          borderRadius: BorderRadius.circular(web ? 8 : 15),
           child: InkWell(
-            borderRadius: BorderRadius.circular(15),
+            borderRadius: BorderRadius.circular(web ? 8 : 15),
             onTap: onTap,
             child: SizedBox(
-              height: 52,
+              height: web ? 44 : 52,
               child: Row(
                 mainAxisAlignment: extended
                     ? MainAxisAlignment.start
@@ -296,9 +358,11 @@ class _RailDestination extends StatelessWidget {
                       label,
                       style: TextStyle(
                         color: foreground,
-                        fontSize: 14,
+                        fontSize: web ? 13 : 14,
                         fontWeight: selected
-                            ? FontWeight.w800
+                            ? (web ? FontWeight.w600 : FontWeight.w800)
+                            : web
+                            ? FontWeight.w500
                             : FontWeight.w600,
                       ),
                     ),

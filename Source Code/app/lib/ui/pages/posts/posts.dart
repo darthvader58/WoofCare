@@ -6,6 +6,7 @@ import 'package:woofcare/ui/pages/posts/posting.dart';
 import 'package:woofcare/ui/widgets/app_chrome.dart';
 import 'package:woofcare/ui/widgets/post_widget.dart';
 import 'package:woofcare/ui/widgets/responsive.dart';
+import 'package:woofcare/ui/widgets/web_design_system.dart';
 
 class SocialMediaFeed extends StatefulWidget {
   const SocialMediaFeed({super.key});
@@ -83,7 +84,9 @@ class _SocialMediaFeedState extends State<SocialMediaFeed> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: WoofCareColors.primaryBackground,
+      backgroundColor: WoofCareWebDesign.enabled
+          ? WoofCareWebDesign.canvas
+          : WoofCareColors.primaryBackground,
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -103,7 +106,7 @@ class _SocialMediaFeedState extends State<SocialMediaFeed> {
             ),
             Expanded(
               child: WoofCareContentSurface(
-                maxWidth: 780,
+                maxWidth: WoofCareWebDesign.enabled ? 820 : 780,
                 child: StreamBuilder(
                   stream: FIRESTORE
                       .collection("posts")
@@ -111,9 +114,24 @@ class _SocialMediaFeedState extends State<SocialMediaFeed> {
                       .snapshots(),
 
                   builder: (context, snapshot) {
+                    if (WoofCareWebDesign.enabled && snapshot.hasError) {
+                      return WoofCareBackendState(
+                        status: WoofCareBackendStatus.failed,
+                        collectionLabel: 'community posts',
+                        error: snapshot.error,
+                      );
+                    }
+
                     // If there is any data in the snapshot of the collection return a ListView.builder will all the posts (docs)
                     if (snapshot.hasData) {
                       if (snapshot.data!.docs.isEmpty) {
+                        if (WoofCareWebDesign.enabled) {
+                          return const WoofCareBackendState(
+                            status: WoofCareBackendStatus.connectedEmpty,
+                            collectionLabel: 'community posts',
+                          );
+                        }
+
                         return const WoofCareEmptyState(
                           icon: Icons.forum_outlined,
                           title: "No posts yet",
@@ -129,7 +147,7 @@ class _SocialMediaFeedState extends State<SocialMediaFeed> {
                                   WoofCareBreakpoints.compact
                               ? 24
                               : 12,
-                          20,
+                          WoofCareWebDesign.enabled ? 28 : 20,
                           MediaQuery.sizeOf(context).width >=
                                   WoofCareBreakpoints.compact
                               ? 24
@@ -163,6 +181,13 @@ class _SocialMediaFeedState extends State<SocialMediaFeed> {
                         ),
                       );
                     }
+                    if (WoofCareWebDesign.enabled) {
+                      return const WoofCareBackendState(
+                        status: WoofCareBackendStatus.connecting,
+                        collectionLabel: 'community posts',
+                      );
+                    }
+
                     return const Center(
                       child: CircularProgressIndicator(
                         color: WoofCareColors.buttonColor,
@@ -186,6 +211,21 @@ class _CreatePostButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (WoofCareWebDesign.enabled) {
+      return Tooltip(
+        message: 'Create post',
+        child: FilledButton.icon(
+          onPressed: onTap,
+          style: FilledButton.styleFrom(
+            minimumSize: const Size(0, 38),
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+          ),
+          icon: const Icon(Icons.add_rounded, size: 18),
+          label: const Text('New post'),
+        ),
+      );
+    }
+
     return Tooltip(
       message: 'Create post',
       child: InkWell(
