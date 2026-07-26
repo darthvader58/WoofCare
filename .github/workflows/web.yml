@@ -39,6 +39,26 @@ jobs:
       - name: Resolve dependencies
         run: flutter pub get
 
+      - name: Validate deploy secrets
+        if: github.event_name != 'pull_request'
+        env:
+          FIREBASE_WEB_VAPID_KEY: ${{ secrets.FIREBASE_WEB_VAPID_KEY }}
+          GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+        run: |
+          set -euo pipefail
+
+          missing=()
+          for name in FIREBASE_WEB_VAPID_KEY GOOGLE_MAPS_API_KEY; do
+            if [[ -z "${!name:-}" ]]; then
+              missing+=("${name}")
+            fi
+          done
+
+          if (( ${#missing[@]} > 0 )); then
+            printf 'Missing required Actions secrets: %s\n' "${missing[*]}" >&2
+            exit 64
+          fi
+
       - name: Build pull request release bundle
         if: github.event_name == 'pull_request'
         run: flutter build web --release

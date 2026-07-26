@@ -19,6 +19,22 @@ if (hasReleaseSigning) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
 
+val mapsProperties = Properties()
+val mapsPropertiesFile = rootProject.file("maps.properties")
+if (mapsPropertiesFile.exists()) {
+    mapsProperties.load(FileInputStream(mapsPropertiesFile))
+}
+
+val googleMapsAndroidApiKey = providers
+    .environmentVariable("GOOGLE_MAPS_ANDROID_API_KEY")
+    .orElse(providers.gradleProperty("GOOGLE_MAPS_ANDROID_API_KEY"))
+    .orElse(mapsProperties.getProperty("GOOGLE_MAPS_API_KEY", ""))
+    .get()
+
+if (googleMapsAndroidApiKey.isNotEmpty() && !googleMapsAndroidApiKey.matches(Regex("^[A-Za-z0-9_-]+$"))) {
+    throw GradleException("GOOGLE_MAPS_ANDROID_API_KEY contains unexpected characters.")
+}
+
 android {
     namespace = "com.epics.woofcare"
     compileSdk = flutter.compileSdkVersion
@@ -43,6 +59,7 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        manifestPlaceholders["GOOGLE_MAPS_API_KEY"] = googleMapsAndroidApiKey
     }
 
     signingConfigs {
@@ -64,6 +81,19 @@ android {
 }
 
 gradle.taskGraph.whenReady {
+    val buildsAndroidApp = allTasks.any {
+        it.name.startsWith("assemble", ignoreCase = true) ||
+            it.name.startsWith("bundle", ignoreCase = true) ||
+            it.name.startsWith("install", ignoreCase = true)
+    }
+
+    if (buildsAndroidApp && googleMapsAndroidApiKey.isBlank()) {
+        throw GradleException(
+            "Missing Google Maps Android API key. Set GOOGLE_MAPS_ANDROID_API_KEY " +
+                "or create android/maps.properties.",
+        )
+    }
+
     if (!hasReleaseSigning && allTasks.any { it.name.contains("Release", ignoreCase = true) }) {
         throw GradleException(
             "Missing android/key.properties. Release builds require the WoofCare signing key.",

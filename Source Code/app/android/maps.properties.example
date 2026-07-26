@@ -1,0 +1,2 @@
+# Copy this file to maps.properties for local Android builds. Never commit the copy.
+GOOGLE_MAPS_API_KEY=YOUR_ANDROID_GOOGLE_MAPS_API_KEY
